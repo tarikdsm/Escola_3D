@@ -8,7 +8,8 @@
  * componente deve ficar montado sempre (retorna null quando fechado).
  */
 
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
+import { COMANDOS } from './comandos';
 import { useAjudaStore } from './helpStore';
 import './ui.css';
 
@@ -55,96 +56,29 @@ export function HelpOverlay() {
 
         <h1>Explorador de Escola Virtual Brasileira 3D</h1>
 
-        <h2>Controles — geral</h2>
-        <ul className="ajuda-controles">
-          <li>
-            <span className="teclas">
-              <kbd>Tab</kbd>
-            </span>
-            alternar caminhar / vista aérea (sai do voo, se estiver voando)
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>F</kbd>
-            </span>
-            modo voar — liga / desliga (voo livre, atravessa paredes e telhado)
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>M</kbd>
-            </span>
-            ligar / desligar sons
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>H</kbd> ou <kbd>?</kbd>
-            </span>
-            abrir / fechar esta ajuda
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>Esc</kbd>
-            </span>
-            liberar o mouse
-          </li>
-          <li>
-            <span className="teclas">Clique num personagem</span>
-            ver detalhes (nome, função e o que está fazendo)
-          </li>
-        </ul>
-
-        <h2>Caminhando e voando</h2>
-        <ul className="ajuda-controles">
-          <li>
-            <span className="teclas">Mouse</span>
-            olhar — clique na tela para travar o cursor
-          </li>
-          <li>
-            <span className="teclas">Segurar botão esquerdo</span>
-            ir para frente (no voo, na direção do olhar)
-          </li>
-          <li>
-            <span className="teclas">Segurar botão direito</span>
-            ir para trás
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>W</kbd>
-              <kbd>A</kbd>
-              <kbd>S</kbd>
-              <kbd>D</kbd> ou setas
-            </span>
-            mover
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>Shift</kbd>
-            </span>
-            correr / voar rápido
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>Espaço</kbd> / <kbd>Ctrl</kbd>
-            </span>
-            subir / descer (só no voo)
-          </li>
-        </ul>
-
-        <h2>Vista aérea</h2>
-        <ul className="ajuda-controles">
-          <li>
-            <span className="teclas">Segurar botão esquerdo / direito</span>
-            avançar / recuar a câmera
-          </li>
-          <li>
-            <span className="teclas">Rodinha do mouse</span>
-            zoom
-          </li>
-          <li>
-            <span className="teclas">Arrastar com o botão do meio</span>
-            girar em volta da escola
-          </li>
-        </ul>
+        {/* Mapa de controles: mesma fonte (comandos.ts) do painel superior direito. */}
+        {COMANDOS.map((secao) => (
+          <Fragment key={secao.titulo}>
+            <h2>{secao.titulo === 'Geral' ? 'Controles — geral' : secao.titulo}</h2>
+            <ul className="ajuda-controles">
+              {secao.itens.map((item) => (
+                <li key={item.rotulo ?? item.teclas?.join('+') ?? item.acao}>
+                  <span className="teclas">
+                    {item.teclas?.map((t, i) => (
+                      <span key={t}>
+                        {i > 0 && item.juncao ? ` ${item.juncao} ` : ''}
+                        <kbd>{t}</kbd>
+                      </span>
+                    ))}
+                    {item.sufixo ? ` ${item.sufixo}` : ''}
+                    {item.rotulo}
+                  </span>
+                  {item.acao}
+                </li>
+              ))}
+            </ul>
+          </Fragment>
+        ))}
 
         <h2>Sobre a simulação</h2>
         <p>

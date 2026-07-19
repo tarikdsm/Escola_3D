@@ -318,3 +318,119 @@
 }
 
 .ajuda-fechar:hover { background: #e0d8c4; }
+
+/* -------------------------------------------------------- ControlsPanel --- */
+
+.comandos {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  width: 264px;
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(247, 242, 231, 0.94); /* paredeInterna */
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(20, 24, 40, 0.22);
+  user-select: none;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+}
+
+.comandos-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 8px 14px;
+  flex: none;
+}
+
+.comandos-titulo {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1d3557; /* letreiroFundo */
+  letter-spacing: 0.02em;
+}
+
+.comandos-toggle {
+  border: none;
+  background: #e4ddcc;
+  color: #1d3557;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.comandos-toggle:hover { background: #d5ccb6; }
+
+.comandos-corpo {
+  overflow-y: auto;
+  padding: 0 14px 12px;
+  scrollbar-width: thin;
+}
+
+.comandos-secao h3 {
+  margin: 10px 0 5px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #4a6fa5; /* guardaCorpo */
+}
+
+.comandos-secao:first-child h3 { margin-top: 2px; }
+
+.comandos-secao ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comandos-secao li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2.5px 0;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.comandos-teclas {
+  flex: none;
+  max-width: 52%;
+  font-weight: 600;
+  color: #1d3557;
+}
+
+.comandos-acao {
+  color: rgba(59, 59, 59, 0.85);
+  text-align: right;
+}
+
+.comandos kbd {
+  display: inline-block;
+  padding: 0 5px;
+  margin: 1px 1px 1px 0;
+  background: #ffffff;
+  border: 1px solid #d5ccb6;
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  color: #1d3557;
+  line-height: 1.5;
+}

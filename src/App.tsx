@@ -21,7 +21,7 @@ import { Characters } from './characters/Characters';
 import { CharacterPicker } from './characters/picking';
 import { Simulation } from './simulation/Simulation';
 import { PlayerRig } from './player';
-import { CharacterCard, HelpOverlay, HUD, Minimap, initAudio } from './ui';
+import { CharacterCard, ControlsPanel, HelpOverlay, HUD, Minimap, initAudio } from './ui';
 import './app.css';
 
 export default function App() {
@@ -74,6 +74,7 @@ export default function App() {
 
       {/* Interface DOM (fora do Canvas) */}
       <HUD />
+      <ControlsPanel />
       <Minimap />
       <CharacterCard />
       <HelpOverlay />

@@ -8,5 +8,6 @@ export { HUD } from './HUD';
 export { Minimap } from './Minimap';
 export { CharacterCard } from './CharacterCard';
 export { HelpOverlay } from './HelpOverlay';
+export { ControlsPanel } from './ControlsPanel';
 export { initAudio } from './audio';
 export { useAjudaStore } from './helpStore';

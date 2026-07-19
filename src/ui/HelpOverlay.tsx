@@ -55,32 +55,19 @@ export function HelpOverlay() {
 
         <h1>Explorador de Escola Virtual Brasileira 3D</h1>
 
-        <h2>Controles</h2>
+        <h2>Controles — geral</h2>
         <ul className="ajuda-controles">
-          <li>
-            <span className="teclas">
-              <kbd>W</kbd>
-              <kbd>A</kbd>
-              <kbd>S</kbd>
-              <kbd>D</kbd>
-            </span>
-            mover
-          </li>
-          <li>
-            <span className="teclas">Mouse</span>
-            olhar — clique na tela para travar o cursor
-          </li>
-          <li>
-            <span className="teclas">
-              <kbd>Shift</kbd>
-            </span>
-            correr
-          </li>
           <li>
             <span className="teclas">
               <kbd>Tab</kbd>
             </span>
-            alternar caminhar / vista aérea
+            alternar caminhar / vista aérea (sai do voo, se estiver voando)
+          </li>
+          <li>
+            <span className="teclas">
+              <kbd>F</kbd>
+            </span>
+            modo voar — liga / desliga (voo livre, atravessa paredes e telhado)
           </li>
           <li>
             <span className="teclas">
@@ -95,14 +82,67 @@ export function HelpOverlay() {
             abrir / fechar esta ajuda
           </li>
           <li>
-            <span className="teclas">Clique num personagem</span>
-            ver detalhes (nome, função e o que está fazendo)
-          </li>
-          <li>
             <span className="teclas">
               <kbd>Esc</kbd>
             </span>
             liberar o mouse
+          </li>
+          <li>
+            <span className="teclas">Clique num personagem</span>
+            ver detalhes (nome, função e o que está fazendo)
+          </li>
+        </ul>
+
+        <h2>Caminhando e voando</h2>
+        <ul className="ajuda-controles">
+          <li>
+            <span className="teclas">Mouse</span>
+            olhar — clique na tela para travar o cursor
+          </li>
+          <li>
+            <span className="teclas">Segurar botão esquerdo</span>
+            ir para frente (no voo, na direção do olhar)
+          </li>
+          <li>
+            <span className="teclas">Segurar botão direito</span>
+            ir para trás
+          </li>
+          <li>
+            <span className="teclas">
+              <kbd>W</kbd>
+              <kbd>A</kbd>
+              <kbd>S</kbd>
+              <kbd>D</kbd> ou setas
+            </span>
+            mover
+          </li>
+          <li>
+            <span className="teclas">
+              <kbd>Shift</kbd>
+            </span>
+            correr / voar rápido
+          </li>
+          <li>
+            <span className="teclas">
+              <kbd>Espaço</kbd> / <kbd>Ctrl</kbd>
+            </span>
+            subir / descer (só no voo)
+          </li>
+        </ul>
+
+        <h2>Vista aérea</h2>
+        <ul className="ajuda-controles">
+          <li>
+            <span className="teclas">Segurar botão esquerdo / direito</span>
+            avançar / recuar a câmera
+          </li>
+          <li>
+            <span className="teclas">Rodinha do mouse</span>
+            zoom
+          </li>
+          <li>
+            <span className="teclas">Arrastar com o botão do meio</span>
+            girar em volta da escola
           </li>
         </ul>
 

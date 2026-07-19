@@ -33,6 +33,26 @@ const CLASSE_PERIODO: Record<Periodo, string> = {
 
 const VELOCIDADES: readonly Velocidade[] = [1, 2, 4];
 
+/**
+ * Rótulo do indicador de modo e dica (tooltip) com os gestos do mouse.
+ * Mapa por string (e não Record<ModoCamera, …>) para compilar mesmo durante
+ * a transição do tipo para 'andar' | 'aereo' | 'voar'.
+ */
+const ROTULOS_MODO: Record<string, string> = {
+  andar: 'Caminhando',
+  aereo: 'Aéreo (Tab)',
+  voar: 'Voando (F)',
+};
+
+const DICAS_MODO: Record<string, string> = {
+  andar:
+    'Segurar botão esquerdo/direito do mouse ou W/S: frente/trás · Shift: correr · Tab: vista aérea · F: voar',
+  aereo:
+    'Segurar botão esquerdo/direito do mouse: avançar/recuar · rodinha: zoom · botão do meio: girar · Tab: caminhar · F: voar',
+  voar:
+    'Voo livre (atravessa paredes e telhado) · Espaço/Ctrl: subir/descer · F ou Tab: sair do voo',
+};
+
 /** Formata minutos desde 00:00 como "HH:MM". */
 function formataRelogio(minutos: number): string {
   const h = Math.floor(minutos / 60);
@@ -95,8 +115,8 @@ export function HUD() {
       </div>
 
       <div className="hud-grupo">
-        <span className="hud-modo">
-          {modoCamera === 'andar' ? 'Caminhando' : 'Aéreo (Tab)'}
+        <span className="hud-modo" title={DICAS_MODO[modoCamera]}>
+          {ROTULOS_MODO[modoCamera] ?? modoCamera}
         </span>
       </div>
     </div>

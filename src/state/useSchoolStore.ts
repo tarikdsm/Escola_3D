@@ -19,6 +19,7 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
   velocidade: 1,
   somLigado: true,
   modoCamera: 'aereo', // integração: abre na vista aérea (escola inteira); Tab desce p/ caminhar
+  modoAnterior: 'aereo', // modo de retorno ao sair do voo (tecla F)
   andarMinimap: 0,
   selecionadoId: null,
   atividades: {},
@@ -27,7 +28,16 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
   setVelocidade: (v) => set({ velocidade: v }),
   toggleSom: () => set((s) => ({ somLigado: !s.somLigado })),
   toggleModoCamera: () =>
-    set((s) => ({ modoCamera: s.modoCamera === 'andar' ? 'aereo' : 'andar' })),
+    set((s) => ({
+      // No voo, Tab sai para o modo anterior; senão alterna andar ↔ aéreo.
+      modoCamera: s.modoCamera === 'voar' ? s.modoAnterior : s.modoCamera === 'andar' ? 'aereo' : 'andar',
+    })),
+  toggleVoo: () =>
+    set((s) =>
+      s.modoCamera === 'voar'
+        ? { modoCamera: s.modoAnterior } // sai do voo para o modo anterior
+        : { modoCamera: 'voar' as const, modoAnterior: s.modoCamera }, // entra no voo lembrando de onde veio
+    ),
   setAndarMinimap: (a) => set({ andarMinimap: a }),
   selecionar: (id) => set({ selecionadoId: id }),
 

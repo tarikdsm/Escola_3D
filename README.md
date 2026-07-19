@@ -4,7 +4,8 @@ Simulador 3D, 100% no navegador, de uma escola pública brasileira em estilo
 low-poly: dois blocos de dois andares, pátio, quadra poliesportiva e 79
 personagens animados vivendo um dia letivo completo — chegada, aulas, recreio
 com bola rolando, almoço e saída — com sino, relógio acelerado e câmera que
-alterna entre caminhar pelos corredores e sobrevoar a escola inteira.
+alterna entre caminhar pelos corredores, sobrevoar a escola inteira e voar
+livremente (atravessando paredes e telhado).
 
 Nenhum asset externo é usado: toda a geometria é procedural (caixas, cilindros
 e planos do three.js), as texturas são geradas em `CanvasTexture` e os sons são
@@ -25,17 +26,40 @@ npm run preview # serve o build de produção (http://localhost:4173)
 
 ## Controles
 
+**Geral**
+
 | Entrada | Ação |
 | --- | --- |
-| `Tab` | Alterna caminhar (1ª pessoa) ↔ vista aérea |
-| `W` `A` `S` `D` ou setas | Mover (modo caminhando) |
-| Mouse | Olhar — clique na tela para travar o cursor |
-| `Shift` | Correr |
-| Botão esquerdo + arrastar / roda | Orbitar / zoom (modo aéreo) |
-| Clique num personagem | Abre o cartão com nome, função e o que está fazendo |
+| `Tab` | Alterna caminhar (1ª pessoa) ↔ vista aérea (sai do voo, se estiver voando) |
+| `F` | Modo voar — liga/desliga (voo livre, atravessa paredes e telhado) |
 | `M` | Liga/desliga os sons |
 | `H` ou `?` | Abre/fecha a ajuda |
 | `Esc` | Libera o mouse / fecha a ajuda |
+| Clique num personagem | Abre o cartão com nome, função e o que está fazendo |
+
+**Caminhando e voando**
+
+| Entrada | Ação |
+| --- | --- |
+| Mouse | Olhar — clique na tela para travar o cursor |
+| Segurar botão esquerdo | Ir para frente (no voo, na direção do olhar) |
+| Segurar botão direito | Ir para trás |
+| `W` `A` `S` `D` ou setas | Mover |
+| `Shift` | Correr / voar rápido |
+| `Espaço` / `Ctrl` | Subir / descer (só no voo) |
+
+**Vista aérea**
+
+| Entrada | Ação |
+| --- | --- |
+| Segurar botão esquerdo / direito | Avançar / recuar a câmera |
+| Rodinha do mouse | Zoom |
+| Arrastar com o botão do meio | Girar em volta da escola |
+
+**HUD e minimapa**
+
+| Entrada | Ação |
+| --- | --- |
 | Botões `1×` `2×` `4×` (HUD) | Velocidade da simulação |
 | Botões `Térreo` / `1º Andar` (minimapa) | Andar exibido no mapa |
 
@@ -96,6 +120,6 @@ src/
 │   └── exterior/     # terreno, pátio, quadra, muros, portão, fachada, vegetação
 ├── characters/   # render instanciado + animações + picking dos 79 personagens
 ├── simulation/   # relógio, máquina de períodos, navegação e comportamentos
-├── player/       # câmera/controles (caminhar com colisão / vista aérea)
+├── player/       # câmera/controles (caminhar com colisão / vista aérea / voo livre)
 └── ui/           # HUD, minimapa, cartão de personagem, ajuda e áudio (DOM)
 ```

@@ -13,8 +13,13 @@ import type { Andar, Periodo } from './types';
 /** Multiplicador da escala de tempo (1×, 2× ou 4× sobre ESCALA_TEMPO). */
 export type Velocidade = 1 | 2 | 4;
 
-/** Modo da câmera: a pé na escola ou vista aérea. */
-export type ModoCamera = 'andar' | 'aereo';
+/**
+ * Modo da câmera: a pé na escola, vista aérea ou voo livre.
+ * ('voar' incluído neste contrato: voo sem colisão nem chão, alternado pela
+ * tecla F — ver PlayerRig.tsx/FlyControls.tsx. O retorno do voo usa
+ * `modoAnterior`.)
+ */
+export type ModoCamera = 'andar' | 'aereo' | 'voar';
 
 export interface SchoolState {
   /** Relógio do jogo em minutos desde 00:00 (inicia em 7·60 = 7h00). */
@@ -27,6 +32,11 @@ export interface SchoolState {
   somLigado: boolean;
   /** Modo da câmera atual. */
   modoCamera: ModoCamera;
+  /**
+   * Modo para o qual se volta ao sair do voo (tecla F ou Tab durante o voo).
+   * Nunca é 'voar'; inicia em 'aereo'.
+   */
+  modoAnterior: 'andar' | 'aereo';
   /** Andar exibido no minimapa. */
   andarMinimap: Andar;
   /** Id do personagem selecionado (painel de detalhes), ou null. */
@@ -42,7 +52,16 @@ export interface SchoolState {
   // --- Actions ---
   setVelocidade: (v: Velocidade) => void;
   toggleSom: () => void;
+  /**
+   * Tab: se estiver voando, sai do voo para `modoAnterior`; senão alterna
+   * 'andar' ↔ 'aereo'.
+   */
   toggleModoCamera: () => void;
+  /**
+   * Tecla F: se estiver voando, volta a `modoAnterior`; senão grava o modo
+   * atual em `modoAnterior` e entra em 'voar'.
+   */
+  toggleVoo: () => void;
   setAndarMinimap: (a: Andar) => void;
   selecionar: (id: string | null) => void;
   /**

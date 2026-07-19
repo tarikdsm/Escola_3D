@@ -4,8 +4,10 @@
  *
  * - Clique no canvas → pointer lock manual; mousemove gira yaw/pitch
  *   (pitch limitado a ±80°). Esc destrava (comportamento nativo do browser).
- * - WASD/setas movem relativo ao yaw; Shift corre (VEL_JOGADOR × 1,8);
- *   aceleração suavizada por lerp exponencial.
+ * - WASD/setas movem relativo ao yaw; segurar LMB também anda para frente e
+ *   segurar RMB para trás (somam ao teclado no mesmo canal frente/trás).
+ *   Botão direito NUNCA abre menu de contexto no canvas.
+ * - Shift corre (VEL_JOGADOR × 1,8); aceleração suavizada por lerp exponencial.
  * - Sem gravidade: a altura dos olhos é chaoEm(...).y + 1,6, com transição
  *   suave ao subir/descer escada. Colisão eixo a eixo via collision.ts e
  *   clamp dentro do TERRENO.
@@ -15,6 +17,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { Euler } from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
 import { CONST, TERRENO } from '../contracts/layout';
 import { playerState } from '../contracts/simBuffer';
@@ -29,11 +32,16 @@ const PITCH_MAX = (80 * Math.PI) / 180;
 const MARGEM_TERRENO = 0.6;
 const FATOR_CORRER = 1.8;
 
+// Scratch para ler a orientação atual da câmera no mount (sem alocar).
+const scratchEuler = new Euler();
+
 export function WalkControls() {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
 
   const teclas = useRef<Set<string>>(new Set());
+  // Botões do mouse segurados (0 = esquerdo → frente; 2 = direito → trás).
+  const botoes = useRef<Set<number>>(new Set());
   // Posição dos PÉS. O spawn do contrato ([0, 1.6, 30]) é altura dos OLHOS;
   // chaoEm resolve o piso correto também nas remontagens (aéreo → andar).
   const pes = useRef<Vec3>([0, 0, 30]);
@@ -51,12 +59,17 @@ export function WalkControls() {
     pes.current[0] = playerState.pos[0];
     pes.current[1] = chao.y;
     pes.current[2] = playerState.pos[2];
+    // Preserva a orientação atual da câmera (ex.: ao voltar do modo voar):
+    // decompõe o quaternion em YXZ em vez de zerar yaw/pitch.
+    scratchEuler.setFromQuaternion(camera.quaternion, 'YXZ');
+    yaw.current = scratchEuler.y;
+    pitch.current = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, scratchEuler.x));
     camera.rotation.order = 'YXZ';
     camera.position.set(pes.current[0], pes.current[1] + ALTURA_OLHOS, pes.current[2]);
     camera.rotation.set(pitch.current, yaw.current, 0);
   }, [camera]);
 
-  // Teclado + pointer lock manual + mouse look.
+  // Teclado + botões do mouse + pointer lock manual + mouse look.
   useEffect(() => {
     const canvas = gl.domElement;
 
@@ -66,7 +79,10 @@ export function WalkControls() {
     const onKeyUp = (e: KeyboardEvent) => {
       teclas.current.delete(e.code);
     };
-    const onBlur = () => teclas.current.clear();
+    const onBlur = () => {
+      teclas.current.clear();
+      botoes.current.clear();
+    };
     const onClick = () => {
       if (useSchoolStore.getState().modoCamera !== 'andar') return;
       if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
@@ -76,19 +92,38 @@ export function WalkControls() {
       yaw.current -= e.movementX * SENSIBILIDADE;
       pitch.current = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, pitch.current - e.movementY * SENSIBILIDADE));
     };
+    // Segurar LMB/RMB também anda (com e sem pointer lock).
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button === 0 || e.button === 2) botoes.current.add(e.button);
+    };
+    const onMouseUp = (e: MouseEvent) => {
+      botoes.current.delete(e.button);
+    };
+    const onMouseLeave = () => botoes.current.clear();
+    // Botão direito nunca abre menu de contexto no canvas.
+    const onContextMenu = (e: MouseEvent) => e.preventDefault();
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
     canvas.addEventListener('click', onClick);
+    canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('mouseleave', onMouseLeave);
+    canvas.addEventListener('contextmenu', onContextMenu);
     document.addEventListener('mousemove', onMouseMove);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', onBlur);
       canvas.removeEventListener('click', onClick);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      canvas.removeEventListener('mouseup', onMouseUp);
+      canvas.removeEventListener('mouseleave', onMouseLeave);
+      canvas.removeEventListener('contextmenu', onContextMenu);
       document.removeEventListener('mousemove', onMouseMove);
       teclas.current.clear();
+      botoes.current.clear();
       // Ao sair do modo a pé, devolve o mouse (OrbitControls precisa dele).
       if (document.pointerLockElement === canvas) document.exitPointerLock();
     };
@@ -98,7 +133,7 @@ export function WalkControls() {
     if (useSchoolStore.getState().modoCamera !== 'andar') return;
     const dt = Math.min(dtBruto, 0.05); // evita saltos ao trocar de aba
 
-    // --- Entrada (WASD/setas) ---
+    // --- Entrada (WASD/setas + botões do mouse) ---
     const t = teclas.current;
     let ix = 0;
     let iz = 0;
@@ -106,6 +141,9 @@ export function WalkControls() {
     if (t.has('KeyS') || t.has('ArrowDown')) iz -= 1;
     if (t.has('KeyA') || t.has('ArrowLeft')) ix -= 1;
     if (t.has('KeyD') || t.has('ArrowRight')) ix += 1;
+    // Botões do mouse somam no mesmo canal frente/trás (LMB = W, RMB = S).
+    if (botoes.current.has(0)) iz += 1;
+    if (botoes.current.has(2)) iz -= 1;
     const correndo = t.has('ShiftLeft') || t.has('ShiftRight');
     const velAlvo = CONST.VEL_JOGADOR * (correndo ? FATOR_CORRER : 1);
 

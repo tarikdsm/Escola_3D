@@ -6,8 +6,13 @@
  * canvas e faz raycast contra essas malhas:
  *
  * - modo 'aereo' (sem pointer lock): evento 'click' com as coords do ponteiro;
- * - modo 'andar' (pointer lock ativo): 'pointerdown' com o raio saindo do
- *   CENTRO da tela (a mira).
+ * - modo 'andar' (pointer lock ativo): raio saindo do CENTRO da tela (a mira).
+ *
+ * Como segurar LMB/RMB agora MOVE a câmera/personagem em todos os modos, a
+ * seleção só acontece no 'click' (soltar o botão) e é IGNORADA quando:
+ * - a pressão durou > 400 ms (segurou para se mover); OU
+ * - a câmera se moveu > 0,05 m entre pointerdown e click; OU
+ * - o ponteiro se moveu > 6 px (arrasto de câmera — regra antiga, mantida).
  *
  * instanceId do raio == índice estável no ROSTER → `selecionar(ROSTER[idx].id)`.
  * Clique fora de qualquer personagem → `selecionar(null)`.
@@ -46,9 +51,12 @@ export function CharacterPicker(): null {
     const el = gl.domElement;
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
-    // Posição do pointerdown, para distinguir clique de arrasto de câmera.
+    // Dados do pointerdown, para distinguir clique de "segurar para mover":
+    // posição e instante do toque + posição da câmera naquele momento.
     let downX = 0;
     let downY = 0;
+    let downT = 0;
+    const downCamPos = new THREE.Vector3();
 
     const selecionarNoPonto = (clientX: number, clientY: number, centro: boolean): void => {
       if (centro) {
@@ -77,20 +85,24 @@ export function CharacterPicker(): null {
     };
 
     const onPointerDown = (e: PointerEvent): void => {
+      // Só registra; a seleção acontece no 'click' (soltar), após os filtros.
       downX = e.clientX;
       downY = e.clientY;
-      // Modo 'andar': pointer lock ativo → mira no centro da tela.
-      if (document.pointerLockElement === el) {
-        selecionarNoPonto(e.clientX, e.clientY, true);
-      }
+      downT = performance.now();
+      downCamPos.copy(camera.position);
     };
 
     const onClick = (e: MouseEvent): void => {
-      // Com pointer lock, o pointerdown acima já tratou (evita dupla seleção).
-      if (document.pointerLockElement === el) return;
-      // Ignora "clique" que na verdade foi arrasto de câmera (orbit/pan).
-      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) return;
-      selecionarNoPonto(e.clientX, e.clientY, false);
+      // Com pointer lock ('andar'/'voar'), a mira é o centro da tela.
+      const centro = document.pointerLockElement === el;
+      // Segurou o botão para se mover (> 400 ms): não é intenção de selecionar.
+      if (performance.now() - downT > 400) return;
+      // A câmera se moveu durante a pressão (voar/andar/avanço aéreo): idem.
+      if (downCamPos.distanceToSquared(camera.position) > 0.05 * 0.05) return;
+      // Arrasto do ponteiro (órbita no aéreo) também não é clique. Com pointer
+      // lock o clientX/Y não é significativo, então o teste só vale fora dele.
+      if (!centro && Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) return;
+      selecionarNoPonto(e.clientX, e.clientY, centro);
     };
 
     el.addEventListener('pointerdown', onPointerDown);

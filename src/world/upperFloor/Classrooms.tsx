@@ -3,7 +3,9 @@
  *
  * Mesmo padrão do térreo, ancorado nos contratos:
  * - CARTEIRAS[salaId]: 30 lugares/sala (grade 6×5) — partes instanciadas;
- * - QUADROS[salaId]: lousa verde com moldura na parede norte;
+ * - QUADROS[salaId]: QUADRO BRANCO na parede norte — moldura/bandeja de
+ *   alumínio instanciadas, marcadores e apagadores instanciados, e a
+ *   superfície escrita/revelada por <QuadrosBrancos> (sem lousa verde);
  * - MESAS_PROFESSOR[salaId]: mesa do professor junto ao quadro;
  * - armário no canto da parede do fundo; 3 cartazes educativos (CanvasTexture);
  * - ventilador de teto girando (useFrame).
@@ -23,12 +25,20 @@ import { PALETTE } from '../../contracts/palette';
 import type { Vec3 } from '../../contracts/types';
 import { InstancedBoxes, type ItemCaixa } from './props/InstancedBoxes';
 import { texturaCartaz } from './props/textures';
+import { QuadrosBrancos } from '../QuadrosBrancos';
+import { COR_MARCADOR } from '../quadroBranco';
 
 /** Ids das salas do andar superior (índices 6–11 de IDS_SALAS_AULA). */
 const SALAS_SUPERIORES = IDS_SALAS_AULA.slice(6);
 
 /** Piso do 1º andar. */
 const Y = 3;
+
+/** Cinza-claro de alumínio escovado (cor local — contracts/palette intactos). */
+const COR_ALUMINIO = '#c9ced4';
+
+/** Cores dos 3 marcadores por sala, na ordem em que ficam na bandeja. */
+const CORES_MARCADORES = [COR_MARCADOR.preto, COR_MARCADOR.azul, COR_MARCADOR.vermelho];
 
 // ---------------------------------------------------------------------------
 // Mobiliário instanciado (todas as 6 salas em poucos draw calls)
@@ -41,8 +51,10 @@ function MobiliarioSalas() {
     const encostos: ItemCaixa[] = [];
     const estrutura: ItemCaixa[] = [];
     const molduras: ItemCaixa[] = [];
-    const lousas: ItemCaixa[] = [];
     const bandejas: ItemCaixa[] = [];
+    const marcadores: ItemCaixa[] = [];
+    const apagadores: ItemCaixa[] = [];
+    const feltros: ItemCaixa[] = [];
     const mesaProf: ItemCaixa[] = [];
     const carcacas: ItemCaixa[] = [];
     const portasArmario: ItemCaixa[] = [];
@@ -60,11 +72,21 @@ function MobiliarioSalas() {
         estrutura.push({ pos: [x, Y + 0.21, z], size: [0.07, 0.42, 0.07] });
       }
 
-      // --- Quadro verde + moldura + bandeja de giz (parede norte, normal +Z).
+      // --- Quadro branco: moldura e bandeja de ALUMÍNIO + 3 marcadores
+      //     (cores por item) e apagador. A SUPERFÍCIE escrita/revelada vem de
+      //     <QuadrosBrancos> — não há mais lousa verde instanciada.
       const q = QUADROS[salaId];
       molduras.push({ pos: [q.pos[0], q.pos[1], q.pos[2] - 0.015], size: [3.4, 1.5, 0.05] });
-      lousas.push({ pos: [q.pos[0], q.pos[1], q.pos[2] + 0.015], size: [3.2, 1.3, 0.04] });
       bandejas.push({ pos: [q.pos[0], Y + 0.93, q.pos[2] + 0.06], size: [1.4, 0.05, 0.1] });
+      for (let i = 0; i < 3; i++) {
+        marcadores.push({
+          pos: [q.pos[0] - 0.32 + i * 0.2, Y + 0.967, q.pos[2] + 0.06],
+          size: [0.17, 0.024, 0.024],
+          color: CORES_MARCADORES[i],
+        });
+      }
+      apagadores.push({ pos: [q.pos[0] + 0.42, Y + 0.982, q.pos[2] + 0.06], size: [0.15, 0.03, 0.055] });
+      feltros.push({ pos: [q.pos[0] + 0.42, Y + 0.961, q.pos[2] + 0.06], size: [0.15, 0.012, 0.055] });
 
       // --- Mesa do professor (tampo + 2 painéis laterais).
       const m = MESAS_PROFESSOR[salaId];
@@ -82,8 +104,8 @@ function MobiliarioSalas() {
       }
     }
     return {
-      tampos, assentos, encostos, estrutura, molduras, lousas, bandejas,
-      mesaProf, carcacas, portasArmario, puxadores,
+      tampos, assentos, encostos, estrutura, molduras, bandejas,
+      marcadores, apagadores, feltros, mesaProf, carcacas, portasArmario, puxadores,
     };
   }, []);
 
@@ -94,10 +116,16 @@ function MobiliarioSalas() {
       <InstancedBoxes items={conjuntos.assentos} color={PALETTE.carteira} roughness={0.8} castShadow receiveShadow />
       <InstancedBoxes items={conjuntos.encostos} color={PALETTE.carteira} roughness={0.8} receiveShadow />
       <InstancedBoxes items={conjuntos.estrutura} color={PALETTE.carteiraMetal} metalness={0.5} roughness={0.45} receiveShadow />
-      {/* Quadros */}
-      <InstancedBoxes items={conjuntos.molduras} color={PALETTE.portaMadeira} roughness={0.8} receiveShadow />
-      <InstancedBoxes items={conjuntos.lousas} color={PALETTE.quadroVerde} roughness={0.9} receiveShadow />
-      <InstancedBoxes items={conjuntos.bandejas} color={PALETTE.janelaMoldura} roughness={0.7} />
+      {/* Quadros brancos: moldura/bandeja de alumínio + marcadores (cor por
+          item, base branca) e apagadores instanciados; as SUPERFÍCIES
+          texturizadas com a aula sendo escrita vêm do <QuadrosBrancos> */}
+      <InstancedBoxes items={conjuntos.molduras} color={COR_ALUMINIO} metalness={0.6} roughness={0.4} receiveShadow />
+      <InstancedBoxes items={conjuntos.bandejas} color={COR_ALUMINIO} metalness={0.6} roughness={0.4} />
+      <InstancedBoxes items={conjuntos.marcadores} color={'#ffffff'} roughness={0.5} />
+      <InstancedBoxes items={conjuntos.apagadores} color={'#9aa0a8'} roughness={0.8} />
+      <InstancedBoxes items={conjuntos.feltros} color={'#3a3f47'} roughness={0.9} />
+      {/* 3,2 × 1,3 na âncora, z +0,015 (mesma cota da antiga lousa) */}
+      <QuadrosBrancos salaIds={SALAS_SUPERIORES} tamanho={[3.2, 1.3]} offsetZ={0.015} />
       {/* Mesas do professor */}
       <InstancedBoxes items={conjuntos.mesaProf} color={PALETTE.mesaProfessor} roughness={0.8} castShadow receiveShadow />
       {/* Armários */}

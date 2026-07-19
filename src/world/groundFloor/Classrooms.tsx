@@ -1,7 +1,9 @@
 /**
  * Classrooms.tsx — Salas de aula 1–6 (térreo do Bloco A), mobiliadas:
  * - 180 carteiras (30/sala) em DUAS InstancedMesh (partes de madeira + metal);
- * - quadro verde com moldura e bandeja de giz (âncoras QUADROS);
+ * - QUADRO BRANCO (âncoras QUADROS): moldura de alumínio por sala + bandeja
+ *   com 3 marcadores e apagador; a superfície escrita/revelada vem de
+ *   <QuadrosBrancos> (montado UMA vez no Classrooms, não por sala);
  * - mesa + cadeira do professor (âncoras MESAS_PROFESSOR);
  * - armário alto no canto, 3 cartazes educativos e ventilador de teto por sala.
  *
@@ -23,6 +25,8 @@ import {
 } from './props/furniture';
 import { Cartaz, type TipoCartaz } from './props/posters';
 import { Ventilador } from './props/Fan';
+import { QuadrosBrancos } from '../QuadrosBrancos';
+import { COR_MARCADOR } from '../quadroBranco';
 
 /** Salas do térreo (sala-1 … sala-6). */
 const SALAS_TERREO = IDS_SALAS_AULA.slice(0, 6);
@@ -74,23 +78,37 @@ function CarteirasInstanciadas() {
 }
 
 // ---------------------------------------------------------------------------
-// Quadro verde com moldura e bandeja de giz
+// Quadro branco: moldura de alumínio + bandeja com marcadores e apagador.
+// A SUPERFÍCIE com a aula escrita (textura revelada ao longo da AULA_1) NÃO
+// fica aqui: vem de <QuadrosBrancos>, montado uma única vez no Classrooms.
 // ---------------------------------------------------------------------------
+
+/** Cinza-claro de alumínio escovado (cor local — contracts/palette intactos). */
+const COR_ALUMINIO = '#c9ced4';
+const MAT_ALUMINIO = materialCor(COR_ALUMINIO, { metalness: 0.6, roughness: 0.4 });
+
+/** Tampas dos 3 marcadores de quadro branco (preto/azul/vermelho). */
+const TAMPAS = [COR_MARCADOR.preto, COR_MARCADOR.azul, COR_MARCADOR.vermelho];
 
 function QuadroSala({ salaId }: { salaId: string }) {
   const q = QUADROS[salaId];
   const rotY = Math.atan2(q.normal[0], q.normal[2]);
   return (
     <group position={q.pos} rotation-y={rotY}>
-      {/* Moldura de madeira */}
-      <Caixa pos={[0, 0, 0]} size={[2.5, 1.3, 0.05]} cor={PALETTE.portaMadeira} receiveShadow />
-      {/* Lousa verde */}
-      <Caixa pos={[0, 0, 0.032]} size={[2.32, 1.12, 0.02]} cor={PALETTE.quadroVerde} />
-      {/* Bandeja de giz */}
-      <Caixa pos={[0, -0.72, 0.1]} size={[1.1, 0.05, 0.12]} cor={PALETTE.janelaMoldura} />
-      {/* Giz e apagador */}
-      <Caixa pos={[0.3, -0.68, 0.1]} size={[0.12, 0.02, 0.02]} cor={'#ffffff'} />
-      <Caixa pos={[-0.2, -0.675, 0.1]} size={[0.14, 0.035, 0.05]} cor={PALETTE.cadeira} />
+      {/* Moldura de alumínio (2,5 × 1,3 — mesmas dimensões da antiga de madeira) */}
+      <Caixa pos={[0, 0, 0]} size={[2.5, 1.3, 0.05]} material={MAT_ALUMINIO} receiveShadow />
+      {/* Bandeja de alumínio sob o quadro */}
+      <Caixa pos={[0, -0.72, 0.1]} size={[1.1, 0.05, 0.12]} material={MAT_ALUMINIO} />
+      {/* 3 marcadores deitados: corpo branco + tampa na cor da tinta */}
+      {TAMPAS.map((cor, i) => (
+        <group key={cor} position={[-0.32 + i * 0.18, -0.683, 0.1]}>
+          <Caixa pos={[0, 0, 0]} size={[0.13, 0.024, 0.024]} cor={'#f4f4f2'} />
+          <Caixa pos={[0.073, 0, 0]} size={[0.032, 0.027, 0.027]} cor={cor} />
+        </group>
+      ))}
+      {/* Apagador: corpo cinza com feltro escuro embaixo */}
+      <Caixa pos={[0.38, -0.668, 0.1]} size={[0.14, 0.03, 0.05]} cor={'#9aa0a8'} />
+      <Caixa pos={[0.38, -0.689, 0.1]} size={[0.14, 0.012, 0.05]} cor={'#3a3f47'} />
     </group>
   );
 }
@@ -136,6 +154,11 @@ export function Classrooms() {
       {SALAS_TERREO.map((id) => (
         <MobiliarioSala key={id} salaId={id} />
       ))}
+      {/* Superfícies dos 6 quadros brancos (UMA montagem; revelação progressiva
+          durante a AULA_1). Superfície 2,4 × 1,15 preenche melhor a moldura de
+          2,5 × 1,3 do que a antiga lousa 2,32 × 1,12 — leve estiramento da
+          textura 2,5:1, aceito para a escrita "respirar" até a borda. */}
+      <QuadrosBrancos salaIds={SALAS_TERREO} tamanho={[2.4, 1.15]} offsetZ={0.03} />
     </group>
   );
 }

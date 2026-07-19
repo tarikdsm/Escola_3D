@@ -1,0 +1,320 @@
+/* ui.css — Estilo da interface da Escola 3D (HUD, minimapa, cartão, ajuda).
+   Visual limpo e amigável: cantos arredondados, sombra suave, cores da PALETTE. */
+
+.hud,
+.minimap,
+.card-personagem,
+.ajuda-modal {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+}
+
+/* ------------------------------------------------------------------ HUD --- */
+
+.hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  user-select: none;
+}
+
+.hud-grupo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(247, 242, 231, 0.94); /* paredeInterna */
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(20, 24, 40, 0.18);
+}
+
+.hud-relogio {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d3557; /* letreiroFundo */
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hud-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #4a6fa5; /* guardaCorpo */
+  white-space: nowrap;
+}
+
+.hud-badge.periodo-chegada { background: #d9a441; }
+.hud-badge.periodo-aula { background: #2a9d8f; }
+.hud-badge.periodo-recreio { background: #e76f51; }
+.hud-badge.periodo-almoco { background: #9b5de5; }
+
+.hud-botao {
+  border: none;
+  background: #e4ddcc;
+  color: #1d3557;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.05s ease;
+}
+
+.hud-botao:hover { background: #d5ccb6; }
+.hud-botao:active { transform: scale(0.95); }
+
+.hud-botao.ativo {
+  background: #4a6fa5;
+  color: #fff;
+}
+
+.hud-modo {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(29, 53, 87, 0.65);
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------- Minimap --- */
+
+.minimap {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 20;
+  padding: 8px;
+  background: rgba(247, 242, 231, 0.94);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(20, 24, 40, 0.18);
+  user-select: none;
+}
+
+.minimap-canvas {
+  display: block;
+  border-radius: 8px;
+}
+
+.minimap-segmentos {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.minimap-segmentos .hud-botao {
+  flex: 1;
+  font-size: 12px;
+}
+
+.minimap-legenda {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(29, 53, 87, 0.7);
+}
+
+.minimap-legenda .ponto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 3px;
+  vertical-align: -1px;
+}
+
+/* ------------------------------------------------------- CharacterCard --- */
+
+.card-personagem {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 20;
+  width: 250px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(20, 24, 40, 0.22);
+}
+
+.card-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-nome {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1d3557;
+  line-height: 1.25;
+}
+
+.card-fechar {
+  border: none;
+  background: #f1ede2;
+  color: #1d3557;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  flex: none;
+  line-height: 1;
+}
+
+.card-fechar:hover { background: #e0d8c4; }
+
+.card-funcao {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a6fa5;
+}
+
+.card-linha {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #3b3b3b;
+}
+
+.card-linha .rotulo {
+  font-weight: 700;
+  color: rgba(29, 53, 87, 0.6);
+}
+
+.card-agora {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: #f7f2e7;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #3b3b3b;
+}
+
+.card-agora .rotulo {
+  font-weight: 700;
+  color: #2a9d8f;
+}
+
+/* ----------------------------------------------------------- HelpOverlay --- */
+
+.ajuda-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 24, 40, 0.55);
+}
+
+.ajuda-modal {
+  position: relative;
+  width: min(480px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 22px 26px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.ajuda-modal h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #1d3557;
+  line-height: 1.3;
+  padding-right: 32px;
+}
+
+.ajuda-modal h2 {
+  margin: 16px 0 8px;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #4a6fa5;
+}
+
+.ajuda-modal p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #3b3b3b;
+  line-height: 1.5;
+}
+
+.ajuda-controles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: #3b3b3b;
+}
+
+.ajuda-controles li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.ajuda-controles .teclas {
+  flex: none;
+  min-width: 150px;
+  font-weight: 600;
+  color: #1d3557;
+}
+
+.ajuda-modal kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 2px;
+  background: #f1ede2;
+  border: 1px solid #d5ccb6;
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ajuda-fechar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: #f1ede2;
+  color: #1d3557;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.ajuda-fechar:hover { background: #e0d8c4; }

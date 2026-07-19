@@ -22,6 +22,14 @@ export type Papel =
   | 'PORTEIRO';
 
 /**
+ * Sexo do personagem ('M' | 'F').
+ * EDIÇÃO DE CONTRATO AUTORIZADA (melhoria de realismo dos NPCs): usado pelo
+ * rig corporal (src/characters/rig.ts) para proporções, detalhePeitoF, saia
+ * e estilos de cabelo. Não afeta a simulação.
+ */
+export type Sexo = 'M' | 'F';
+
+/**
  * Estados de animação dos personagens.
  * São gravados como ÍNDICES no buffer `SIM.anim` (ver simBuffer.ts);
  * use `ANIM_INDEX[estado]` para escrever e `ANIM_STATES[idx]` para ler.
@@ -167,6 +175,12 @@ export interface PersonagemInfo {
   indice: number;
   nome: string;
   papel: Papel;
+  /**
+   * Sexo do personagem. EDIÇÃO DE CONTRATO AUTORIZADA (realismo dos NPCs):
+   * atribuído nome a nome em roster.ts; consumido apenas pelo rig/render
+   * (proporções, saia, detalhePeitoF, cabelo). Ids/índices intactos.
+   */
+  sexo: Sexo;
   /** Apenas professores: matéria lecionada. */
   materia?: string;
   /** Professores e alunos: id da sala "de origem" ('sala-1'…'sala-12'). */

@@ -29,8 +29,10 @@ import { useSchoolStore } from '../state/useSchoolStore';
 
 /**
  * Malhas instanciadas clicáveis dos personagens (preenchidas por Characters).
- * A mochila fica FORA da lista: instâncias de não-alunos têm escala 0
- * (matriz singular atrapalharia o raycast).
+ * Só entram as partes presentes em TODOS os 79 personagens (cabeça, pescoço,
+ * peito, quadril, braços, mãos, pernas, pés): cabelos, saia, detalhePeitoF,
+ * mochila e vassouras têm instâncias com escala 0 (matriz singular), o que
+ * atrapalharia o raycast — ficam FORA da lista.
  */
 export const characterMeshes: THREE.InstancedMesh[] = [];
 

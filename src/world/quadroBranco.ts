@@ -1,6 +1,6 @@
 /**
  * quadroBranco.ts — Conteúdo de aula + revelação progressiva dos QUADROS
- * BRANCOS de pincel marcador das 12 salas de aula (módulo PURO, sem React).
+ * BRANCOS de pincel marcador das 32 salas de aula (módulo PURO, sem React).
  *
  * Como funciona:
  * - O conteúdo COMPLETO da aula de cada matéria é renderizado UMA única vez
@@ -21,6 +21,7 @@
  */
 
 import * as THREE from 'three';
+import { IDS_SALAS_AULA } from '../contracts/layout';
 
 // ---------------------------------------------------------------------------
 // Cores dos marcadores e da superfície (locais — contracts/palette intactos)
@@ -43,25 +44,32 @@ const H = 256;
 const FONTE = `'Segoe Print', 'Comic Sans MS', cursive`;
 
 // ---------------------------------------------------------------------------
-// Mapa fixo sala → matéria (espelha roster.ts: prof-N leciona na sala-N)
+// Mapa sala → matéria (rotação das 12 matérias do roster pelas 32 salas:
+// sala-1…12 mantêm o conteúdo original; sala-13…32 repetem o ciclo)
 // ---------------------------------------------------------------------------
 
-const MATERIA_POR_SALA = {
-  'sala-1': 'portugues',
-  'sala-2': 'matematica',
-  'sala-3': 'historia',
-  'sala-4': 'geografia',
-  'sala-5': 'ciencias',
-  'sala-6': 'ingles',
-  'sala-7': 'artes',
-  'sala-8': 'edfisica',
-  'sala-9': 'fisica',
-  'sala-10': 'quimica',
-  'sala-11': 'biologia',
-  'sala-12': 'redacao',
-} as const;
+/** As 12 matérias com conteúdo desenhado, na ordem do roster (sala-1…12). */
+const MATERIAS_ORDEM = [
+  'portugues',
+  'matematica',
+  'historia',
+  'geografia',
+  'ciencias',
+  'ingles',
+  'artes',
+  'edfisica',
+  'fisica',
+  'quimica',
+  'biologia',
+  'redacao',
+] as const;
 
-type Materia = (typeof MATERIA_POR_SALA)[keyof typeof MATERIA_POR_SALA];
+type Materia = (typeof MATERIAS_ORDEM)[number];
+
+/** Gerado de IDS_SALAS_AULA (32 salas): nada de hardcode por número de salas. */
+const MATERIA_POR_SALA: Record<string, Materia> = Object.fromEntries(
+  IDS_SALAS_AULA.map((id, k) => [id, MATERIAS_ORDEM[k % MATERIAS_ORDEM.length]]),
+);
 
 // ---------------------------------------------------------------------------
 // Utilitários (RNG determinístico, hash, helpers de desenho)

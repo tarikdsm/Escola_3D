@@ -3,15 +3,21 @@
  *
  * Convenções globais do projeto:
  * - Unidade = metros. Eixo Y para cima (Y-up). Origem (0,0,0) no centro do pátio.
- * - Piso térreo em y=0, laje intermediária em y=3 (pé-direito de 3 m), telhado acima de y=6.
- * - `Andar` 0 = térreo, 1 = piso superior (base em y=3).
+ * - Piso térreo em y=0, lajes intermediárias em y=3, 6 e 9 (pé-direito de 3 m),
+ *   telhado em y=12 — 4 pavimentos nos 3 blocos do U.
+ * - `Andar` 0 = térreo; 1, 2 e 3 = pavimentos superiores (bases em y=3, 6 e 9).
  * - Comentários e strings voltadas ao usuário em PT-BR; identificadores em inglês.
  */
 
 /** Períodos do dia letivo (ver routine.ts para os horários). */
 export type Periodo = 'CHEGADA' | 'AULA_1' | 'RECREIO' | 'AULA_2' | 'ALMOCO_SAIDA';
 
-/** Papéis dos personagens na escola. */
+/**
+ * Papéis dos personagens na escola.
+ * EDIÇÃO DE CONTRATO (expansão 712, SPEC seção Roster): 'almoxarife' é o papel
+ * novo do funcionário do almoxarifado (índice 711) — valor em minúsculas,
+ * conforme a SPEC.
+ */
 export type Papel =
   | 'DIRETORA'
   | 'SECRETARIO'
@@ -19,7 +25,8 @@ export type Papel =
   | 'ALUNO'
   | 'COZINHEIRA'
   | 'FAXINEIRO'
-  | 'PORTEIRO';
+  | 'PORTEIRO'
+  | 'almoxarife';
 
 /**
  * Sexo do personagem ('M' | 'F').
@@ -77,8 +84,8 @@ export const ANIM_INDEX: Record<AnimState, number> = {
 /** Vetor 3D imutável por convenção: [x, y, z] em metros. */
 export type Vec3 = [number, number, number];
 
-/** Andar da escola: 0 = térreo (y base 0), 1 = superior (y base 3). */
-export type Andar = 0 | 1;
+/** Andar da escola: 0 = térreo (y base 0) … 3 = 3º andar (y base 9); lajes a cada 3 m. */
+export type Andar = 0 | 1 | 2 | 3;
 
 /**
  * Caixa sólida alinhada aos eixos (AABB). `min` e `max` são cantos absolutos.
@@ -150,7 +157,7 @@ export interface SalaDef {
   portas: VaoPorta[];
   /** Vãos de janela sobre as paredes do cômodo. */
   janelas: VaoPorta[];
-  /** Cor hex opcional para destaque no minimapa/legendas. */
+  /** Cor hex opcional de destaque da sala (hoje só conceitual — ficava no antigo minimapa). */
   corDestaque?: string;
 }
 

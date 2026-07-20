@@ -1,27 +1,40 @@
 /**
- * Staircase.tsx — As 2 escadarias do contrato (STAIRS):
- * - escada-a (principal, 4 m): base (28,0,−6) → patamar (28,1,5,−13) → topo (28,3,−20);
- * - escada-b (secundária, 3 m): base (−24,0,+2) → patamar (−24,1,5,+6) → topo (−24,3,+10).
+ * Staircase.tsx — As 3 escadarias do contrato (STAIRS), em meia-volta de
+ * 3 lances (térreo → 3º andar):
+ * - escada-a (pátio→Bloco A): lances x 22…30, z −20…−3 + patamar e passarela
+ *   flutuantes em y=6 (passarela liga à varanda do 2º andar);
+ * - escada-b (pátio→Bloco B): lances x −26…−22, z +2…+10 + patamar e
+ *   passarela flutuantes em y=6;
+ * - escada-c (hall interno do Bloco C): lances x −45…−41, z −6…+2 — sem
+ *   patamares (desemboca nas lajes; os guarda-corpos dos vãos estão em WALLS).
  *
- * Degraus maciços de concreto (InstancedMesh; espelho ~0,17 m interpolado
- * base→patamar→topo), corrimão inclinado nos DOIS lados de cada lance +
- * trecho horizontal no patamar, balaústres verticais a cada ~0,8 m e vigas
- * laterais fechando o vão sob cada lance.
+ * Cada lance (StairDef.lances) vira degraus maciços instanciados (espelho
+ * ~0,17 m): lances com base no SOLO (y=0) são maciços até o chão; lances
+ * ELEVADOS (base y>0) viram uma laje dente-de-serra (cada degrau desce só
+ * ~0,22 m abaixo do degrau anterior) para não enterrar o lance que passa
+ * por baixo na meia-volta. Corrimão inclinado nos DOIS lados de cada lance,
+ * balaústres verticais a cada ~0,8 m e vigas laterais sob cada lance.
+ * Patamares/passarelas (StairDef.patamares) viram lajes finas instanciadas;
+ * seus guarda-corpos estão em WALLS e são renderizados em ParedesSuperiores.
  *
- * Premissa do contrato: ambas as escadas correm ao longo do eixo Z
- * (dir = (0,0,±1)); por isso os corrimãos/vigas usam rotação apenas em X.
+ * Premissa do contrato: todos os lances correm ao longo do eixo Z
+ * (dir = (0,0,±1)); por isso corrimãos/vigas usam rotação apenas em X
+ * (rotX = atan2(dy, dz) cobre dz positivo e negativo).
  */
 
 import { useMemo } from 'react';
 import { STAIRS, type StairDef } from '../../contracts/layout';
 import { PALETTE } from '../../contracts/palette';
-import type { Vec3 } from '../../contracts/types';
 import { InstancedBoxes, type ItemCaixa } from './props/InstancedBoxes';
 
 /** Altura do corrimão acima do piso do degrau. */
 const H_CORRIMAO = 0.92;
 /** Espelho alvo dos degraus (~0,17 m, norma escolar). */
 const ESPELHO = 0.17;
+/** Quanto a laje dente-de-serra desce abaixo do degrau anterior (lances elevados). */
+const ALMA = 0.22;
+/** Espessura das lajes de patamar/passarela. */
+const ESP_PATAMAR = 0.28;
 
 interface DadosEscada {
   degraus: ItemCaixa[];
@@ -36,12 +49,10 @@ function calcularEscada(stair: StairDef): DadosEscada {
   const balaustres: ItemCaixa[] = [];
   const vigas: ItemCaixa[] = [];
   const meiaLarg = stair.largura / 2;
-  const lances: [Vec3, Vec3][] = [
-    [stair.base, stair.patamar],
-    [stair.patamar, stair.topo],
-  ];
 
-  for (const [a, b] of lances) {
+  for (const lance of stair.lances) {
+    const a = lance.base;
+    const b = lance.topo;
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const dz = b[2] - a[2];
@@ -51,18 +62,24 @@ function calcularEscada(stair: StairDef): DadosEscada {
     // Lateral horizontal (perpendicular à subida): para dir ±Z resulta em ±X.
     const latX = -dirZ;
     const latZ = dirX;
-    const rotX = Math.atan2(dy, dz); // inclinação do lance (escadas ao longo de Z)
+    const rotX = Math.atan2(dy, dz); // inclinação do lance (lances ao longo de Z)
     const comp = Math.hypot(run, dy);
+    const noSolo = a[1] < 0.01;
 
-    // --- Degraus maciços: caixas do chão (y=0) até o topo de cada degrau.
+    // --- Degraus: maciços até o chão no lance térreo; laje dente-de-serra
+    //     (fundo = topo do degrau anterior − ALMA) nos lances elevados.
     const n = Math.max(1, Math.round(dy / ESPELHO));
     const espelho = dy / n;
     const piso = run / n;
+    // Footprint do degrau: largura na lateral, piso na direção da subida.
+    const sizeX = stair.largura * Math.abs(latX) + (piso + 0.02) * Math.abs(dirX);
+    const sizeZ = stair.largura * Math.abs(latZ) + (piso + 0.02) * Math.abs(dirZ);
     for (let i = 0; i < n; i++) {
       const yTopo = a[1] + (i + 1) * espelho;
+      const yFundo = noSolo ? 0 : a[1] + i * espelho - ALMA;
       degraus.push({
-        pos: [a[0] + dirX * (i + 0.5) * piso, yTopo / 2, a[2] + dirZ * (i + 0.5) * piso],
-        size: [stair.largura, yTopo, piso + 0.02],
+        pos: [a[0] + dirX * (i + 0.5) * piso, (yTopo + yFundo) / 2, a[2] + dirZ * (i + 0.5) * piso],
+        size: [sizeX, yTopo - yFundo, sizeZ],
       });
     }
 
@@ -86,7 +103,7 @@ function calcularEscada(stair: StairDef): DadosEscada {
           size: [0.05, H_CORRIMAO, 0.05],
         });
       }
-      // Viga estrutural na face externa, fechando o vão sob o lance.
+      // Viga estrutural na face externa, acompanhando a inclinação do lance.
       vigas.push({
         pos: [midX + latX * s * (meiaLarg + 0.06), midY - 0.1, midZ + latZ * s * (meiaLarg + 0.06)],
         size: [0.14, 0.4, comp],
@@ -95,28 +112,18 @@ function calcularEscada(stair: StairDef): DadosEscada {
     }
   }
 
-  // --- Patamar maciço + corrimão horizontal dos dois lados.
-  const p = stair.patamar;
-  degraus.push({
-    pos: [p[0], p[1] / 2, p[2]],
-    size: [stair.largura, p[1], 0.9],
-  });
-  // Lateral do patamar (dir ao longo de Z → lados em X).
-  const latPX = -stair.dir[2];
-  const latPZ = stair.dir[0];
-  for (const s of [-1, 1]) {
-    const ox = latPX * s * (meiaLarg - 0.07);
-    const oz = latPZ * s * (meiaLarg - 0.07);
-    corrimaos.push({
-      pos: [p[0] + ox, p[1] + H_CORRIMAO, p[2] + oz],
-      size: [0.07, 0.07, 1.0],
+  // --- Patamares e passarelas: lajes finas (face superior na cota do contrato).
+  for (const p of stair.patamares) {
+    degraus.push({
+      pos: [p.rect.x + p.rect.w / 2, p.y - ESP_PATAMAR / 2, p.rect.z + p.rect.d / 2],
+      size: [p.rect.w, ESP_PATAMAR, p.rect.d],
     });
   }
 
   return { degraus, corrimaos, balaustres, vigas };
 }
 
-/** As duas escadarias completas (degraus, corrimãos, balaústres e vigas). */
+/** As 3 escadarias completas (degraus, corrimãos, balaústres e vigas). */
 export function Staircase() {
   const dados = useMemo(() => STAIRS.map(calcularEscada), []);
   const grupos = useMemo(() => {

@@ -1,9 +1,13 @@
 /**
  * AdminRooms.tsx — Cômodos administrativos do térreo do Bloco B:
- * Diretoria, Secretaria e Sala dos Professores (âncoras de ADMIN).
+ * Diretoria, Secretaria e Coordenação Pedagógica (âncoras de ADMIN).
  *
  * Convenção de fachada: portas/janelas na parede norte (z=+13); as salas
  * se estendem até a parede sul (z=+20, fachada da rua).
+ *
+ * NOTA (expansão): a antiga Sala dos Professores do Bloco B virou a
+ * Coordenação Pedagógica; a sala dos professores oficial agora é a
+ * SALA_PROFESSORES_GRANDE do Bloco C (renderizada em SalaProfessores.tsx).
  */
 
 import * as THREE from 'three';
@@ -89,13 +93,13 @@ function Secretaria() {
 }
 
 // ---------------------------------------------------------------------------
-// Sala dos Professores (x 13…21, z 13…20)
+// Coordenação Pedagógica (x 13…21, z 13…20) — antiga sala dos professores B
 // ---------------------------------------------------------------------------
 
-function SalaProfessores() {
+function Coordenacao() {
   return (
-    <group name="sala-dos-professores">
-      {/* 4 mesas com 2 cadeiras cada (âncoras ADMIN.profMesas) */}
+    <group name="coordenacao">
+      {/* 4 mesas de trabalho com 2 cadeiras cada (âncoras ADMIN.profMesas) */}
       {ADMIN.profMesas.map((p, i) => (
         <group key={i}>
           <Mesa pos={p} w={1.4} d={0.9} h={0.75} cor={PALETTE.mesaProfessor} />
@@ -103,6 +107,11 @@ function SalaProfessores() {
           <Cadeira pos={[p[0], 0, p[2] + 0.75]} rotY={Math.PI} />
         </group>
       ))}
+      {/* Computadores nas 2 mesas do lado norte (telas viradas p/ quem senta) */}
+      {[0, 1].map((i) => {
+        const p = ADMIN.profMesas[i];
+        return <Computador key={i} pos={[p[0] - 0.3, 0.75, p[2] + 0.1]} rotY={0} />;
+      })}
       {/* Quadro de avisos na parede sul */}
       <group position={[17, 1.7, 19.89]} rotation-y={Math.PI}>
         <Caixa pos={[0, 0, -0.015]} size={[1.75, 1.25, 0.04]} cor={PALETTE.portaMadeira} />
@@ -120,13 +129,13 @@ function SalaProfessores() {
 // Componente público
 // ---------------------------------------------------------------------------
 
-/** Diretoria, Secretaria e Sala dos Professores mobiliadas. */
+/** Diretoria, Secretaria e Coordenação Pedagógica mobiliadas. */
 export function AdminRooms() {
   return (
     <group name="admin-terreo">
       <Diretoria />
       <Secretaria />
-      <SalaProfessores />
+      <Coordenacao />
     </group>
   );
 }

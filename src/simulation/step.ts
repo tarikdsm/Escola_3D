@@ -2,8 +2,10 @@
  * step.ts — Orquestra UM frame da simulação inteira (sem React, testável
  * em Node headless). Ordem por frame:
  *
- * 1) relógio (delta × ESCALA_TEMPO × velocidade → tickClock; wrap às 12h);
- * 2) detecção de troca de período → interrompe todos e replaneja;
+ * 1) relógio (delta × ESCALA_TEMPO × velocidade → tickClock; wrap às 23h);
+ * 2) detecção de troca de período → interrompe todos e replaneja (troca de
+ *    TURNO na CHEGADA rearma a entrada dos 640 alunos como "nova turma" —
+ *    ver behaviors.aoMudarPeriodo e estado.prepararNovoTurno);
  * 3) portão: aberto em CHEGADA/RECREIO/ALMOCO_SAIDA, fechado em AULA_*
  *    (decisão documentada aqui; aplicada só quando muda);
  * 4) agentes (máquina de estados + modos bola/fila);

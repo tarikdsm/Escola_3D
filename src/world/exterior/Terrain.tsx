@@ -7,10 +7,16 @@ import { PALETTE, TERRENO } from '../../contracts';
 import type { RectXZ } from '../../contracts';
 import { texturaCimento } from './canvasTextures';
 
-/** Faixas de cimento: pátio central + circulação oeste/leste + caminho ao portão. */
+/**
+ * Faixas de cimento: pátio central (vão do U) + circulação oeste (contorna o
+ * Bloco C, x −45…−33) + lateral leste + ligação à quadra + caminho ao portão.
+ * Cotas casadas com as plantas dos blocos em layout.ts.
+ */
 const FAIXAS_CIMENTO: RectXZ[] = [
-  { x: -33, z: -20, w: 62, d: 30 }, // pátio central entre os blocos
-  { x: -37, z: -32, w: 4, d: 74 }, // circulação oeste (contorna os blocos até o portão)
+  { x: -33, z: -20, w: 62, d: 30 }, // pátio central no vão do U (A ao norte, B ao sul, C a oeste)
+  { x: -49, z: -32, w: 4, d: 52 }, // circulação oeste ao longo do Bloco C (até z=+20)
+  { x: -49, z: 20, w: 16, d: 4 }, // contorno da esquina sudoeste do Bloco C
+  { x: -37, z: 24, w: 4, d: 18 }, // continuação da circulação oeste até o portão (z +24…+42)
   { x: 29, z: -20, w: 4, d: 40 }, // lateral leste dos blocos
   { x: 33, z: -15, w: 7, d: 25 }, // ligação pátio → quadra
   { x: -24, z: 20, w: 10, d: 25 }, // caminho Bloco B → portão

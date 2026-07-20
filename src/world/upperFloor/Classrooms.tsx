@@ -1,14 +1,20 @@
 /**
- * Classrooms.tsx — Salas de aula 7–12 (Bloco A superior, y base = 3).
+ * Classrooms.tsx — Salas de aula dos PAVIMENTOS SUPERIORES (andares 1–3):
+ * Bloco A (sala-5…sala-16), Bloco B (sala-17…sala-24, 2º/3º andares) e
+ * Bloco C (sala-27…sala-32) — 26 salas, 20 carteiras cada (520 lugares).
  *
- * Mesmo padrão do térreo, ancorado nos contratos:
- * - CARTEIRAS[salaId]: 30 lugares/sala (grade 6×5) — partes instanciadas;
- * - QUADROS[salaId]: QUADRO BRANCO na parede norte — moldura/bandeja de
- *   alumínio instanciadas, marcadores e apagadores instanciados, e a
- *   superfície escrita/revelada por <QuadrosBrancos> (sem lousa verde);
+ * Mesmo padrão do térreo, ancorado nos contratos e ORIENTADO pelo quadro:
+ * - CARTEIRAS[salaId]: 20 lugares/sala (grade 5×4) — partes instanciadas.
+ *   A orientação de cada carteira vem de QUADROS[salaId].normal: o aluno
+ *   olha para o quadro (−normal); o conjunto local (tampo à frente, encosto
+ *   atrás) é girado pelo rotY da normal — cobre quadro NORTE (A), SUL (B)
+ *   e OESTE (C) sem hardcode de geometria;
+ * - QUADROS[salaId]: QUADRO BRANCO — moldura/bandeja de alumínio
+ *   instanciadas, marcadores e apagadores instanciados, e a superfície
+ *   escrita/revelada por <QuadrosBrancos> (sem lousa verde);
  * - MESAS_PROFESSOR[salaId]: mesa do professor junto ao quadro;
- * - armário no canto da parede do fundo; 3 cartazes educativos (CanvasTexture);
- * - ventilador de teto girando (useFrame).
+ * - armário no canto da parede da porta (deduzido de sala.portas[0]);
+ * - 3 cartazes educativos (CanvasTexture); ventilador de teto girando.
  */
 
 import { useEffect, useMemo, useRef } from 'react';
@@ -16,23 +22,21 @@ import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import {
   CARTEIRAS,
+  CONST,
   IDS_SALAS_AULA,
   MESAS_PROFESSOR,
   QUADROS,
   getSala,
 } from '../../contracts/layout';
 import { PALETTE } from '../../contracts/palette';
-import type { Vec3 } from '../../contracts/types';
+import type { SalaDef, Vec3 } from '../../contracts/types';
 import { InstancedBoxes, type ItemCaixa } from './props/InstancedBoxes';
 import { texturaCartaz } from './props/textures';
 import { QuadrosBrancos } from '../QuadrosBrancos';
 import { COR_MARCADOR } from '../quadroBranco';
 
-/** Ids das salas do andar superior (índices 6–11 de IDS_SALAS_AULA). */
-const SALAS_SUPERIORES = IDS_SALAS_AULA.slice(6);
-
-/** Piso do 1º andar. */
-const Y = 3;
+/** Ids das salas de aula dos andares 1–3 (sala-5…16, sala-17…24, sala-27…32). */
+const SALAS_SUPERIORES = IDS_SALAS_AULA.filter((id) => getSala(id).andar >= 1);
 
 /** Cinza-claro de alumínio escovado (cor local — contracts/palette intactos). */
 const COR_ALUMINIO = '#c9ced4';
@@ -40,8 +44,49 @@ const COR_ALUMINIO = '#c9ced4';
 /** Cores dos 3 marcadores por sala, na ordem em que ficam na bandeja. */
 const CORES_MARCADORES = [COR_MARCADOR.preto, COR_MARCADOR.azul, COR_MARCADOR.vermelho];
 
+/**
+ * Aplica um giro yaw (rotação em Y) a um offset local (ox, oz) — mesma
+ * convenção do three.js: x' = x·cos + z·sen, z' = −x·sen + z·cos.
+ */
+function girar(ox: number, oz: number, rotY: number): [number, number] {
+  const c = Math.cos(rotY);
+  const s = Math.sin(rotY);
+  return [ox * c + oz * s, -ox * s + oz * c];
+}
+
+/** rotY que alinha o +Z local à normal do quadro (quadro N/S/O). */
+function rotYPelaNormal(normal: Vec3): number {
+  return Math.atan2(normal[0], normal[2]);
+}
+
+/**
+ * Posição/orientação do armário: encostado na parede DA PORTA, no canto mais
+ * distante da porta, 0,335 m para dentro da sala (faces da porta em +Z local).
+ */
+function armarioDa(sala: SalaDef): { centro: Vec3; rotY: number } {
+  const p = sala.portas[0];
+  const r = sala.rect;
+  const y = sala.andar * CONST.ALTURA_PISO;
+  if (p.eixo === 'x') {
+    // Parede da porta ao longo de X: norte (z mínimo do rect) ou sul (z máximo).
+    const noNorte = Math.abs(p.z - r.z) < 0.2;
+    const dirZ = noNorte ? 1 : -1; // para dentro da sala
+    const zParede = noNorte ? r.z : r.z + r.d;
+    const noOeste = p.x - r.x > r.w / 2;
+    const xCanto = noOeste ? r.x + 0.7 : r.x + r.w - 0.7;
+    return { centro: [xCanto, y, zParede + dirZ * 0.335], rotY: Math.atan2(0, dirZ) };
+  }
+  // Parede da porta ao longo de Z: oeste (x mínimo) ou leste (x máximo).
+  const noOeste = Math.abs(p.x - r.x) < 0.2;
+  const dirX = noOeste ? 1 : -1;
+  const xParede = noOeste ? r.x : r.x + r.w;
+  const noNorte = p.z - r.z > r.d / 2;
+  const zCanto = noNorte ? r.z + 0.7 : r.z + r.d - 0.7;
+  return { centro: [xParede + dirX * 0.335, y, zCanto], rotY: Math.atan2(dirX, 0) };
+}
+
 // ---------------------------------------------------------------------------
-// Mobiliário instanciado (todas as 6 salas em poucos draw calls)
+// Mobiliário instanciado (todas as 26 salas em poucos draw calls)
 // ---------------------------------------------------------------------------
 
 function MobiliarioSalas() {
@@ -60,47 +105,67 @@ function MobiliarioSalas() {
     const portasArmario: ItemCaixa[] = [];
     const puxadores: ItemCaixa[] = [];
 
+    /** Empurra uma caixa orientada: âncora + offset local girado + rotY. */
+    const empurrar = (
+      lista: ItemCaixa[],
+      ancora: Vec3,
+      ox: number,
+      oy: number,
+      oz: number,
+      size: Vec3,
+      rotY: number,
+      color?: string,
+    ) => {
+      const [gx, gz] = girar(ox, oz, rotY);
+      lista.push({
+        pos: [ancora[0] + gx, ancora[1] + oy, ancora[2] + gz],
+        size,
+        rot: [0, rotY, 0],
+        ...(color !== undefined ? { color } : {}),
+      });
+    };
+
     for (const salaId of SALAS_SUPERIORES) {
-      // --- Carteiras: assento na âncora; tampo à frente (−Z, lado do quadro).
-      for (const [x, , z] of CARTEIRAS[salaId]) {
-        tampos.push({ pos: [x, Y + 0.72, z - 0.42], size: [0.6, 0.05, 0.45] });
-        assentos.push({ pos: [x, Y + 0.435, z], size: [0.42, 0.05, 0.42] });
-        encostos.push({ pos: [x, Y + 0.7, z + 0.21], size: [0.42, 0.4, 0.05] });
+      const q = QUADROS[salaId];
+      const rotQ = rotYPelaNormal(q.normal);
+      // Offsets do quadro são relativos a q.pos (1,6 m acima do piso).
+
+      // --- Carteiras (frame local: quadro em −Z; aluno olha para −Z).
+      for (const [x, y, z] of CARTEIRAS[salaId]) {
+        const assento: Vec3 = [x, y, z];
+        empurrar(tampos, assento, 0, 0.72, -0.42, [0.6, 0.05, 0.45], rotQ);
+        empurrar(assentos, assento, 0, 0.435, 0, [0.42, 0.05, 0.42], rotQ);
+        empurrar(encostos, assento, 0, 0.7, 0.21, [0.42, 0.4, 0.05], rotQ);
         for (const s of [-1, 1]) {
-          estrutura.push({ pos: [x + s * 0.26, Y + 0.36, z - 0.42], size: [0.05, 0.72, 0.45] });
+          empurrar(estrutura, assento, s * 0.26, 0.36, -0.42, [0.05, 0.72, 0.45], rotQ);
         }
-        estrutura.push({ pos: [x, Y + 0.21, z], size: [0.07, 0.42, 0.07] });
+        empurrar(estrutura, assento, 0, 0.21, 0, [0.07, 0.42, 0.07], rotQ);
       }
 
       // --- Quadro branco: moldura e bandeja de ALUMÍNIO + 3 marcadores
       //     (cores por item) e apagador. A SUPERFÍCIE escrita/revelada vem de
       //     <QuadrosBrancos> — não há mais lousa verde instanciada.
-      const q = QUADROS[salaId];
-      molduras.push({ pos: [q.pos[0], q.pos[1], q.pos[2] - 0.015], size: [3.4, 1.5, 0.05] });
-      bandejas.push({ pos: [q.pos[0], Y + 0.93, q.pos[2] + 0.06], size: [1.4, 0.05, 0.1] });
+      empurrar(molduras, q.pos, 0, 0, -0.015, [3.4, 1.5, 0.05], rotQ);
+      empurrar(bandejas, q.pos, 0, -0.67, 0.06, [1.4, 0.05, 0.1], rotQ);
       for (let i = 0; i < 3; i++) {
-        marcadores.push({
-          pos: [q.pos[0] - 0.32 + i * 0.2, Y + 0.967, q.pos[2] + 0.06],
-          size: [0.17, 0.024, 0.024],
-          color: CORES_MARCADORES[i],
-        });
+        empurrar(marcadores, q.pos, -0.32 + i * 0.2, -0.633, 0.06, [0.17, 0.024, 0.024], rotQ, CORES_MARCADORES[i]);
       }
-      apagadores.push({ pos: [q.pos[0] + 0.42, Y + 0.982, q.pos[2] + 0.06], size: [0.15, 0.03, 0.055] });
-      feltros.push({ pos: [q.pos[0] + 0.42, Y + 0.961, q.pos[2] + 0.06], size: [0.15, 0.012, 0.055] });
+      empurrar(apagadores, q.pos, 0.42, -0.618, 0.06, [0.15, 0.03, 0.055], rotQ);
+      empurrar(feltros, q.pos, 0.42, -0.639, 0.06, [0.15, 0.012, 0.055], rotQ);
 
-      // --- Mesa do professor (tampo + 2 painéis laterais).
+      // --- Mesa do professor (tampo + 2 painéis laterais), de frente p/ a sala.
       const m = MESAS_PROFESSOR[salaId];
-      mesaProf.push({ pos: [m[0], Y + 0.735, m[2]], size: [1.2, 0.06, 0.6] });
+      empurrar(mesaProf, m, 0, 0.735, 0, [1.2, 0.06, 0.6], rotQ);
       for (const s of [-1, 1]) {
-        mesaProf.push({ pos: [m[0] + s * 0.55, Y + 0.36, m[2]], size: [0.06, 0.72, 0.55] });
+        empurrar(mesaProf, m, s * 0.55, 0.36, 0, [0.06, 0.72, 0.55], rotQ);
       }
 
-      // --- Armário no canto da parede do fundo (z=−23), portas voltadas à sala.
-      const x0 = getSala(salaId).rect.x;
-      carcacas.push({ pos: [x0 + 10.3, Y + 0.9, -23.335], size: [0.9, 1.8, 0.45] });
+      // --- Armário no canto da parede da porta, portas voltadas à sala.
+      const arm = armarioDa(getSala(salaId));
+      empurrar(carcacas, arm.centro, 0, 0.9, 0, [0.9, 1.8, 0.45], arm.rotY);
       for (const s of [-1, 1]) {
-        portasArmario.push({ pos: [x0 + 10.3 + s * 0.225, Y + 0.9, -23.575], size: [0.42, 1.68, 0.03] });
-        puxadores.push({ pos: [x0 + 10.3 + s * 0.11, Y + 0.9, -23.6], size: [0.035, 0.14, 0.03] });
+        empurrar(portasArmario, arm.centro, s * 0.225, 0.9, 0.24, [0.42, 1.68, 0.03], arm.rotY);
+        empurrar(puxadores, arm.centro, s * 0.11, 0.9, 0.265, [0.035, 0.14, 0.03], arm.rotY);
       }
     }
     return {
@@ -111,7 +176,7 @@ function MobiliarioSalas() {
 
   return (
     <group name="mobiliario-salas-superiores">
-      {/* 180 carteiras (30 × 6 salas) em 5 draw calls */}
+      {/* 520 carteiras (20 × 26 salas) em 4 draw calls */}
       <InstancedBoxes items={conjuntos.tampos} color={PALETTE.carteira} roughness={0.8} castShadow receiveShadow />
       <InstancedBoxes items={conjuntos.assentos} color={PALETTE.carteira} roughness={0.8} castShadow receiveShadow />
       <InstancedBoxes items={conjuntos.encostos} color={PALETTE.carteira} roughness={0.8} receiveShadow />
@@ -124,7 +189,7 @@ function MobiliarioSalas() {
       <InstancedBoxes items={conjuntos.marcadores} color={'#ffffff'} roughness={0.5} />
       <InstancedBoxes items={conjuntos.apagadores} color={'#9aa0a8'} roughness={0.8} />
       <InstancedBoxes items={conjuntos.feltros} color={'#3a3f47'} roughness={0.9} />
-      {/* 3,2 × 1,3 na âncora, z +0,015 (mesma cota da antiga lousa) */}
+      {/* 3,2 × 1,3 na âncora, +0,015 ao longo da normal (mesma cota da antiga lousa) */}
       <QuadrosBrancos salaIds={SALAS_SUPERIORES} tamanho={[3.2, 1.3]} offsetZ={0.015} />
       {/* Mesas do professor */}
       <InstancedBoxes items={conjuntos.mesaProf} color={PALETTE.mesaProfessor} roughness={0.8} castShadow receiveShadow />
@@ -147,12 +212,27 @@ function Cartazes() {
   const cartazes = useMemo(() => {
     const lista: { pos: Vec3; rotY: number; variante: number }[] = [];
     SALAS_SUPERIORES.forEach((salaId, i) => {
-      const x0 = getSala(salaId).rect.x;
-      // Dois cartazes na divisória oeste (face interior olha para +X)…
-      lista.push({ pos: [x0 + 0.115, Y + 1.65, -28.6], rotY: Math.PI / 2, variante: i % 4 });
-      lista.push({ pos: [x0 + 0.115, Y + 1.65, -26.4], rotY: Math.PI / 2, variante: (i + 1) % 4 });
-      // …e um na divisória leste (face olha para −X).
-      lista.push({ pos: [x0 + 10.885, Y + 1.65, -27.5], rotY: -Math.PI / 2, variante: (i + 2) % 4 });
+      const sala = getSala(salaId);
+      const { x, z, w, d } = sala.rect;
+      const y = sala.andar * CONST.ALTURA_PISO + 1.65;
+      const quadroEmZ = QUADROS[salaId].normal[2] !== 0;
+      if (quadroEmZ) {
+        // Quadro NORTE (A) ou SUL (B): cartazes nas divisórias oeste/leste.
+        lista.push({ pos: [x + 0.115, y, z + 3.4], rotY: Math.PI / 2, variante: i % 4 });
+        lista.push({ pos: [x + 0.115, y, z + 5.6], rotY: Math.PI / 2, variante: (i + 1) % 4 });
+        lista.push({ pos: [x + w - 0.115, y, z + d / 2], rotY: -Math.PI / 2, variante: (i + 2) % 4 });
+      } else {
+        // Quadro OESTE (C): 2 cartazes na parede leste + 1 na divisória z=−24
+        // (face da sala — norte para a sala do norte, sul para a do sul).
+        lista.push({ pos: [x + w - 0.115, y, z + 2.5], rotY: -Math.PI / 2, variante: i % 4 });
+        lista.push({ pos: [x + w - 0.115, y, z + 5.5], rotY: -Math.PI / 2, variante: (i + 1) % 4 });
+        const salaDoNorte = Math.abs(z + d + 24) < 0.01;
+        lista.push(
+          salaDoNorte
+            ? { pos: [x + w / 2, y, z + d - 0.115], rotY: Math.PI, variante: (i + 2) % 4 }
+            : { pos: [x + w / 2, y, z + 0.115], rotY: 0, variante: (i + 2) % 4 },
+        );
+      }
     });
     return lista;
   }, []);
@@ -170,7 +250,7 @@ function Cartazes() {
 }
 
 // ---------------------------------------------------------------------------
-// Ventiladores de teto (3 pás, rotação contínua via useFrame)
+// Ventiladores de teto (3 pás, rotação contínua via useFrame — 1 por sala)
 // ---------------------------------------------------------------------------
 
 function Ventiladores() {
@@ -184,16 +264,19 @@ function Ventiladores() {
   return (
     <group name="ventiladores-superiores">
       {SALAS_SUPERIORES.map((salaId, i) => {
-        const cx = getSala(salaId).rect.x + 5.5;
+        const sala = getSala(salaId);
+        const cx = sala.rect.x + sala.rect.w / 2;
+        const cz = sala.rect.z + sala.rect.d / 2;
+        const y = sala.andar * CONST.ALTURA_PISO;
         return (
-          <group key={salaId} position={[cx, 0, -27.5]}>
-            {/* Haste até o teto (y≈5,8) */}
-            <mesh position={[0, 5.55, 0]}>
+          <group key={salaId} position={[cx, y, cz]}>
+            {/* Haste até a laje/teto (teto em y+2,75…3) */}
+            <mesh position={[0, 2.55, 0]}>
               <cylinderGeometry args={[0.025, 0.025, 0.5, 8]} />
               <meshStandardMaterial color="#d9d9d9" metalness={0.4} roughness={0.5} />
             </mesh>
             {/* Motor */}
-            <mesh position={[0, 5.28, 0]}>
+            <mesh position={[0, 2.28, 0]}>
               <cylinderGeometry args={[0.1, 0.12, 0.14, 12]} />
               <meshStandardMaterial color={PALETTE.janelaMoldura} metalness={0.3} roughness={0.5} />
             </mesh>
@@ -202,7 +285,7 @@ function Ventiladores() {
               ref={(g) => {
                 rotores.current[i] = g;
               }}
-              position={[0, 5.2, 0]}
+              position={[0, 2.2, 0]}
               rotation={[0, i * 1.1, 0]}
             >
               {[0, 1, 2].map((k) => (
@@ -223,7 +306,7 @@ function Ventiladores() {
 
 // ---------------------------------------------------------------------------
 
-/** Salas de aula 7–12 completas (mobiliário + cartazes + ventiladores). */
+/** Salas de aula superiores completas (mobiliário + cartazes + ventiladores). */
 export function Classrooms() {
   return (
     <group name="salas-superiores">

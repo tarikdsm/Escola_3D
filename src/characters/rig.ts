@@ -1,5 +1,5 @@
 /**
- * rig.ts — CORPO PARAMÉTRICO dos 79 personagens (pré-computado UMA vez no
+ * rig.ts — CORPO PARAMÉTRICO dos 712 personagens (pré-computado UMA vez no
  * mount; NADA é alocado por frame — o useFrame só lê estes arrays).
  *
  * Cada personagem recebe, de forma DETERMINÍSTICA por índice (RNG mulberry32
@@ -7,7 +7,9 @@
  * - fator de altura: adultos 1,55–1,85 m; alunos 1,20–1,55 m;
  * - biotipo: magro (×0,90) / médio (×1,00) / largo (×1,12) nas larguras;
  * - sexo (vem do roster): ajusta ombros/quadril e define saia/detalhePeitoF;
- * - estilo de cabelo (0–6, ou CARECA) e cor de sapato.
+ * - estilo de cabelo (0–6, ou CARECA) e cor de sapato;
+ * - avental: só o almoxarife (papel 'almoxarife', índice 711 — adulto sem
+ *   mochila, como todo não-aluno).
  *
  * Proporções: adulto ≈ 7,5 cabeças (cabeça = altura/7,5 ≈ 0,23 m). O tronco
  * é dividido em quadril (pelve) + peito; cada membro tem 2 segmentos com
@@ -91,6 +93,7 @@ export interface RigPersonagens {
   saia: Uint8Array; // 1 = usa saia (parte das personagens F)
   detalheF: Uint8Array; // 1 = detalhePeitoF (mulheres adultas)
   mochila: Uint8Array; // 1 = aluno
+  avental: Uint8Array; // 1 = almoxarife (avental de trabalho, cor da camisa)
   sapato: Uint8Array; // índice em SAPATOS
 }
 
@@ -125,6 +128,7 @@ export function construirRig(): RigPersonagens {
     saia: new Uint8Array(n),
     detalheF: new Uint8Array(n),
     mochila: new Uint8Array(n),
+    avental: new Uint8Array(n),
     sapato: new Uint8Array(n),
   };
 
@@ -184,12 +188,14 @@ export function construirRig(): RigPersonagens {
       rig.cabelo[i] = careca ? CARECA : uCab < 0.55 ? 0 : uCab < 0.82 ? 1 : 2;
     }
 
-    // --- Saia, detalhePeitoF, mochila, sapato ---
+    // --- Saia, detalhePeitoF, mochila, avental, sapato ---
     // Saia: só F — metade das alunas, ~1/3 das mulheres adultas (determinístico).
     rig.saia[i] = fem && rand() < (aluno ? 0.5 : 0.35) ? 1 : 0;
     // Detalhe de peito: só mulheres ADULTAS (alunas não — decisão de bom gosto).
     rig.detalheF[i] = fem && !aluno ? 1 : 0;
     rig.mochila[i] = aluno ? 1 : 0;
+    // Avental: só o almoxarife (papel 'almoxarife' — adulto sem mochila).
+    rig.avental[i] = p.papel === 'almoxarife' ? 1 : 0;
     rig.sapato[i] = Math.floor(rand() * SAPATOS.length) % SAPATOS.length;
   }
 

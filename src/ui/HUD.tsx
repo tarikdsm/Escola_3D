@@ -4,16 +4,23 @@
  *
  * - Relógio digital HH:MM: clockMin muda A CADA FRAME, então NÃO fazemos
  *   subscribe — lemos `useSchoolStore.getState().clockMin` a cada 250 ms.
- * - Badge do período (subscribe a `periodo`, baixa frequência).
+ * - Badge do turno + período (subscribe a `turno`/`periodo`, baixa frequência).
  * - Velocidade 1×/2×/4×, som 🔊/🔇 (M), ajuda "?" (H) e modo de câmera.
  */
 
 import { useEffect, useState } from 'react';
 import type { Periodo } from '../contracts/types';
+import type { Turno } from '../contracts/routine';
 import type { Velocidade } from '../contracts/store';
 import { useSchoolStore } from '../state/useSchoolStore';
 import { useAjudaStore } from './helpStore';
 import './ui.css';
+
+const ROTULOS_TURNO: Record<Turno, string> = {
+  manha: 'Manhã',
+  tarde: 'Tarde',
+  noite: 'Noite',
+};
 
 const ROTULOS_PERIODO: Record<Periodo, string> = {
   CHEGADA: 'Chegada',
@@ -62,6 +69,7 @@ function formataRelogio(minutos: number): string {
 
 export function HUD() {
   const periodo = useSchoolStore((s) => s.periodo);
+  const turno = useSchoolStore((s) => s.turno);
   const velocidade = useSchoolStore((s) => s.velocidade);
   const somLigado = useSchoolStore((s) => s.somLigado);
   const modoCamera = useSchoolStore((s) => s.modoCamera);
@@ -83,7 +91,9 @@ export function HUD() {
     <div className="hud">
       <div className="hud-grupo">
         <span className="hud-relogio">{relogio}</span>
-        <span className={`hud-badge ${CLASSE_PERIODO[periodo]}`}>{ROTULOS_PERIODO[periodo]}</span>
+        <span className={`hud-badge ${CLASSE_PERIODO[periodo]}`}>
+          {ROTULOS_TURNO[turno]} · {ROTULOS_PERIODO[periodo]}
+        </span>
       </div>
 
       <div className="hud-grupo" role="group" aria-label="Velocidade da simulação">

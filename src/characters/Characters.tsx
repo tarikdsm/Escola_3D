@@ -1,14 +1,15 @@
 /**
- * Characters.tsx — RENDER INSTANCIADO dos 79 personagens da escola.
+ * Characters.tsx — RENDER INSTANCIADO dos 712 personagens da escola.
  *
- * Uma THREE.InstancedMesh POR PARTE DO CORPO (79 instâncias cada, na ordem
+ * Uma THREE.InstancedMesh POR PARTE DO CORPO (712 instâncias cada, na ordem
  * do ROSTER → instanceId continua mapeando o personagem no picking):
  *   cabeça · pescoço · peito · quadril · detalhePeitoF · saia
  *   2× (braço superior · antebraço · mão)
  *   2× (coxa · canela · pé)
- *   7 estilos de cabelo (careca = todas com escala 0) · mochila
- * = 26 draw calls de personagem + 2 malhas pequenas (cabo/cerdas da
- * vassoura dos faxineiros, índices 76–77). Total ≈ 28 instanced draws.
+ *   7 estilos de cabelo (careca = todas com escala 0) · mochila · avental
+ * = 27 draw calls de personagem + 2 malhas pequenas (cabo/cerdas da
+ * vassoura dos faxineiros, índices derivados do ROSTER). Total ≈ 29
+ * instanced draws.
  *
  * A cada frame (useFrame) as posições/animações são lidas DIRETO dos buffers
  * SIM (contracts/simBuffer) — nada de React state por frame. As poses-alvo
@@ -23,9 +24,10 @@
  * Sentado: o quadril desce para ALTURA_ASSENTO (0,45 m — assento da carteira).
  *
  * Partes que não se aplicam a um personagem (cabelo de outro estilo, saia,
- * detalhePeitoF, mochila de não-aluno) ficam com a matriz ZERO do mount —
- * o loop nem as toca. No picking só entram as partes presentes nos 79
- * (matrizes nunca singulares) — ver PARTES_CLICAVEIS.
+ * detalhePeitoF, mochila de não-aluno, avental de não-almoxarife) ficam com
+ * a matriz ZERO do mount — o loop nem as toca. No picking só entram as
+ * partes presentes nos 712 (matrizes nunca singulares) — ver
+ * PARTES_CLICAVEIS.
  */
 
 import { useMemo, useRef } from 'react';
@@ -36,14 +38,20 @@ import { computePose, criarPoseNeutra, suavizarPose, type Pose } from './animati
 import { ALTURA_ASSENTO, SAPATOS, construirRig, type RigPersonagens } from './rig';
 import { registrarMalhaPersonagem } from './picking';
 
-const N = ROSTER.length; // 79
+const N = ROSTER.length; // 712
 const TAU = Math.PI * 2;
 
-/** Índice do primeiro faxineiro no ROSTER (76, 77) — donos das vassouras. */
-const IDX_FAXINEIRO_0 = 76;
-const N_VASSOURAS = 2;
+/**
+ * Faixa dos faxineiros no ROSTER (donos das vassouras) — DERIVADA do elenco,
+ * sem literal de índice: hoje são os índices 708–709.
+ */
+const IDX_FAXINEIRO_0 = ROSTER.findIndex((p) => p.papel === 'FAXINEIRO');
+const N_VASSOURAS = ROSTER.reduce(
+  (acc, p) => acc + (p.papel === 'FAXINEIRO' ? 1 : 0),
+  0,
+);
 
-/** As 26 partes instanciadas com 79 instâncias cada (ordem do ROSTER). */
+/** As 27 partes instanciadas com 712 instâncias cada (ordem do ROSTER). */
 const PARTES = [
   'cabeca',
   'pescoco',
@@ -71,6 +79,7 @@ const PARTES = [
   'cabeloCoque',
   'cabeloTrancas',
   'mochila',
+  'avental',
 ] as const;
 
 type NomeParte = (typeof PARTES)[number] | 'caboVassoura' | 'cerdasVassoura';
@@ -78,9 +87,9 @@ type RegistroMalhas = Record<NomeParte, THREE.InstancedMesh | null>;
 type Malhas = Record<NomeParte, THREE.InstancedMesh>;
 
 /**
- * Partes presentes em TODOS os 79 personagens (nunca têm instância com
+ * Partes presentes em TODOS os 712 personagens (nunca têm instância com
  * escala 0 → matrizes nunca singulares) — só elas entram no picking.
- * Cabelos/saia/detalhePeitoF/mochila/vassouras ficam de fora.
+ * Cabelos/saia/detalhePeitoF/mochila/avental/vassouras ficam de fora.
  */
 const PARTES_CLICAVEIS: ReadonlySet<string> = new Set([
   'cabeca',
@@ -245,6 +254,8 @@ function corDaParte(parte: NomeParte, indice: number, rig: RigPersonagens): stri
       return SAPATOS[rig.sapato[indice]];
     case 'mochila':
       return paleta.mochila ?? '#ffffff';
+    case 'avental':
+      return paleta.camisa; // avental na cor de trabalho do almoxarife
     case 'caboVassoura':
       return PALETTE.tronco;
     case 'cerdasVassoura':
@@ -286,6 +297,7 @@ export function Characters(): JSX.Element {
     cabeloCoque: null,
     cabeloTrancas: null,
     mochila: null,
+    avental: null,
     caboVassoura: null,
     cerdasVassoura: null,
   });
@@ -305,7 +317,7 @@ export function Characters(): JSX.Element {
   const yawCabeca = useMemo(() => new Float32Array(N), []);
 
   /** Ref callback: pinta as instâncias (instanceColor) 1×, zera as matrizes
-   *  iniciais e registra para picking as partes presentes nos 79. */
+   *  iniciais e registra para picking as partes presentes nos 712. */
   const configurarMalha =
     (nome: NomeParte, total: number) =>
     (m: THREE.InstancedMesh | null): void => {
@@ -417,6 +429,14 @@ export function Characters(): JSX.Element {
         parte(m.mochila, i, _mChest, 0, peitoSeg * 0.45, -(peitoD * 0.5 + 0.07 * er),
           0.32 * er, 0.38 * er, 0.14 * er);
       }
+      if (rig.avental[i] === 1) {
+        // Avental do almoxarife: placa frontal pendurada no tronco, do peito
+        // (abaixo dos ombros) até o meio das coxas, rente à frente do corpo.
+        const avTopo = peitoSeg * 0.78;
+        const avBase = -(quadrilSeg + coxaC * 0.4);
+        parte(m.avental, i, _mChest, 0, (avTopo + avBase) * 0.5, peitoD * 0.5 + 0.015,
+          peitoW * 0.7, avTopo - avBase, 0.03);
+      }
 
       // Pescoço e cabeça (a cabeça gira com a pose + yaw do 'talk').
       junta(_mNeck, _mChest, 0, peitoSeg, 0, 0, 0, 0);
@@ -511,6 +531,7 @@ export function Characters(): JSX.Element {
     m.cabeloCoque.instanceMatrix.needsUpdate = true;
     m.cabeloTrancas.instanceMatrix.needsUpdate = true;
     m.mochila.instanceMatrix.needsUpdate = true;
+    m.avental.instanceMatrix.needsUpdate = true;
     m.caboVassoura.instanceMatrix.needsUpdate = true;
     m.cerdasVassoura.instanceMatrix.needsUpdate = true;
   });

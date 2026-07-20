@@ -9,21 +9,23 @@
 
 import { create } from 'zustand';
 import { CONST } from '../contracts/layout';
-import { ROTINA, periodoPara } from '../contracts/routine';
+import { ROTINA, periodoPara, turnoPara } from '../contracts/routine';
 import { emit } from '../contracts/events';
+import { reporEstoque as reporEstoquePinceis, setComAllcanci } from '../simulation/pinceis';
 import type { SchoolState } from '../contracts/store';
 
 export const useSchoolStore = create<SchoolState>()((set, get) => ({
   clockMin: CONST.HORA_ABERTURA, // 7h00
   periodo: periodoPara(CONST.HORA_ABERTURA), // 'CHEGADA'
+  turno: turnoPara(CONST.HORA_ABERTURA), // 'manha'
   velocidade: 1,
   somLigado: true,
   modoCamera: 'aereo', // integração: abre na vista aérea (escola inteira); Tab desce p/ caminhar
   modoAnterior: 'aereo', // modo de retorno ao sair do voo (tecla F)
-  andarMinimap: 0,
   selecionadoId: null,
   atividades: {},
   portaoAberto: true,
+  comAllcanci: false, // "Sem Allcanci": pincéis descartáveis (estoque do almoxarifado)
 
   setVelocidade: (v) => set({ velocidade: v }),
   toggleSom: () => set((s) => ({ somLigado: !s.somLigado })),
@@ -38,7 +40,12 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
         ? { modoCamera: s.modoAnterior } // sai do voo para o modo anterior
         : { modoCamera: 'voar' as const, modoAnterior: s.modoCamera }, // entra no voo lembrando de onde veio
     ),
-  setAndarMinimap: (a) => set({ andarMinimap: a }),
+  toggleAllcanci: () => {
+    const novo = !get().comAllcanci;
+    setComAllcanci(novo); // espelha no módulo da simulação (lido pelos behaviors)
+    set({ comAllcanci: novo });
+  },
+  reporEstoque: () => reporEstoquePinceis(),
   selecionar: (id) => set({ selecionadoId: id }),
 
   tickClock: (minutos) => {
@@ -46,7 +53,7 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
     if (minutos <= 0 || clockMin >= CONST.HORA_FECHAMENTO) return;
     const novoMin = Math.min(clockMin + minutos, CONST.HORA_FECHAMENTO);
     const novoPeriodo = periodoPara(novoMin);
-    set({ clockMin: novoMin, periodo: novoPeriodo });
+    set({ clockMin: novoMin, periodo: novoPeriodo, turno: turnoPara(novoMin) });
     // Eventos de sino para cada marco cruzado neste avanço.
     for (const marco of ROTINA) {
       if (marco.sino && clockMin < marco.inicioMin && marco.inicioMin <= novoMin) {

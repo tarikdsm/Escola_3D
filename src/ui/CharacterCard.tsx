@@ -26,6 +26,8 @@ function funcaoDe(p: PersonagemInfo): string {
       return 'Faxineiro(a)';
     case 'PORTEIRO':
       return 'Porteiro';
+    case 'almoxarife':
+      return 'Almoxarife';
     default:
       return 'Equipe';
   }

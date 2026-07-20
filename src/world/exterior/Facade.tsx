@@ -3,26 +3,30 @@
  * letreiro da fachada do Bloco B.
  *
  * Os AABBs dos muros/guarita vêm de WALLS (fonte única da verdade), filtrados
- * pela convenção de fatiamento: centro FORA dos dois blocos e espessura > 0,15
+ * pela convenção de fatiamento: centro FORA das plantas dos 3 blocos (A, B e o
+ * novo conector C), base no nível do solo (exclui os guarda-corpos flutuantes
+ * das escadas, renderizados pelo agente das escadas) e espessura > 0,15
  * (o alambrado, espessura 0,1, é renderizado em SportsCourt como tela).
  */
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Instances, Instance } from '@react-three/drei';
-import { PALETTE, WALLS, PORTARIA } from '../../contracts';
+import { CONST, PALETTE, WALLS, PORTARIA } from '../../contracts';
 import type { AABB } from '../../contracts';
 import { useSchoolStore } from '../../state/useSchoolStore';
 import { texturaLetreiro } from './canvasTextures';
 
 // ---------------------------------------------------------------------------
-// Fatiamento dos WALLS (centro fora dos blocos A/B)
+// Fatiamento dos WALLS (centro fora das plantas dos blocos A/B/C)
 // ---------------------------------------------------------------------------
 
+/** Plantas (layout.ts): A x −33…+33, z −32…−20 · B x −33…+29, z +10…+20 · C x −45…−33, z −32…+20. */
 function dentroDosBlocos(cx: number, cz: number): boolean {
   const noA = cx >= -33 && cx <= 33 && cz >= -32 && cz <= -20;
-  const noB = cx >= -29 && cx <= 29 && cz >= 10 && cz <= 20;
-  return noA || noB;
+  const noB = cx >= -33 && cx <= 29 && cz >= 10 && cz <= 20;
+  const noC = cx >= -45 && cx <= -33 && cz >= -32 && cz <= 20;
+  return noA || noB || noC;
 }
 
 interface Caixa {
@@ -45,6 +49,10 @@ const EXTERNOS = WALLS.filter((a) => {
   const cx = (a.min[0] + a.max[0]) / 2;
   const cz = (a.min[2] + a.max[2]) / 2;
   if (dentroDosBlocos(cx, cz)) return false;
+  // Guarda-corpos flutuantes das escadas (patamares/passarelas em y=6, no
+  // pátio, fora das plantas) pertencem ao agente das escadas — sem isso
+  // virariam "muro" com faixa de azulejo no chão.
+  if (a.min[1] >= 3) return false;
   const espessura = Math.min(a.max[0] - a.min[0], a.max[2] - a.min[2]);
   return espessura > 0.15; // exclui o alambrado (0,1)
 });
@@ -218,10 +226,17 @@ function Portao() {
 // Letreiro da fachada sul do Bloco B (parede z=+20, virada à rua)
 // ---------------------------------------------------------------------------
 
+/**
+ * Cota do letreiro na fachada agora mais alta (4 pavimentos, telhado y=12):
+ * faixa entre o topo das janelas do térreo (y=2,2) e a base das do 1º andar
+ * (y=4,0) — legível da rua por cima do muro (2,2 m) sem cobrir janela alguma.
+ */
+const Y_LETREIRO = CONST.ALTURA_PISO + 0.05;
+
 function Letreiro() {
   const tex = useMemo(() => texturaLetreiro(), []);
   return (
-    <group position={[0, 4.5, 20]}>
+    <group position={[0, Y_LETREIRO, 20]}>
       {/* Moldura clara atrás da placa. */}
       <mesh position={[0, 0, 0.12]}>
         <boxGeometry args={[10.4, 1.5, 0.1]} />

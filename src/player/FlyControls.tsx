@@ -15,7 +15,7 @@
  *   y entre 0,3 e 80.
  * - Convenção de escrita: playerState.pos = [x, y − 1,6, z] e
  *   playerState.andar derivado dessa altura — ATENÇÃO: no voo, pos NÃO são
- *   pés reais (é só para o minimapa/simulação localizarem o jogador).
+ *   pés reais (é só para a simulação localizar o jogador).
  * - Não faz subscribe à store: lê modoCamera via getState() no loop/listeners.
  */
 
@@ -190,7 +190,7 @@ export function FlyControls() {
 
     // --- Publica o estado e move a câmera ---
     // Convenção: pos = "pés" = olhos − 1,6. NO VOO NÃO SÃO PÉS REAIS —
-    // serve só para o minimapa/simulação saberem onde o jogador está.
+    // serve só para a simulação saber onde o jogador está.
     playerState.pos[0] = p[0];
     playerState.pos[1] = p[1] - ALTURA_OLHOS;
     playerState.pos[2] = p[2];

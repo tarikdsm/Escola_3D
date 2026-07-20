@@ -3,8 +3,9 @@
  *
  * A simulação escreve aqui 60×/s e o render lê no mesmo ritmo; NADA disto
  * passa pelo Zustand por frame (o store só carrega estado "grosso", ~1 Hz).
- * Os arrays são dimensionados por ROSTER.length (79) e indexados por
- * PersonagemInfo.indice (0–78).
+ * Os arrays são dimensionados por ROSTER.length (712 na expansão — ver SPEC)
+ * e indexados por PersonagemInfo.indice (0–711). Somente a turma do turno
+ * atual ocupa os slots 66–705 (640 alunos reutilizados entre os 3 turnos).
  *
  * Convenções:
  * - pos: [x, y, z] em metros (y = piso sob os pés do personagem);
@@ -20,6 +21,11 @@ import { ANIM_INDEX, ANIM_STATES, type Andar, type AnimState, type Vec3 } from '
 
 const N = ROSTER.length;
 
+// Falha rápida se o roster sair do contrato da expansão (712 — ver SPEC).
+if (N !== 712) {
+  throw new Error(`SIM espera ROSTER com 712 personagens (encontrados ${N}).`);
+}
+
 export const SIM = {
   pos: new Float32Array(N * 3),
   facing: new Float32Array(N),
@@ -31,7 +37,7 @@ export const SIM = {
 
 /**
  * Estado mutável do jogador (singleton): escrito pelos controles do jogador
- * e lido pelo minimapa/câmera. Spawn: pátio sul, a 1,6 m de altura (olhos).
+ * e lido pela simulação/câmera. Spawn: pátio sul, a 1,6 m de altura (olhos).
  */
 export const playerState = {
   pos: [0, 1.6, 30] as Vec3,

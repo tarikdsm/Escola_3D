@@ -1,5 +1,5 @@
 /**
- * Auditorium.tsx — Auditório (Bloco B superior, x −29…−5, z 13…20, y base 3).
+ * Auditorium.tsx — Auditório (1º andar do Bloco B, x −33…−5, z 13…20, y base 3).
  *
  * - Palco elevado (~0,45 m) no rect AUDITORIO.palco, com degrau frontal;
  * - Cortina teatral vermelha com dobras senoidais (PlaneGeometry deslocada),

@@ -7,10 +7,20 @@
  * aplica ao agente, que então executa (ver agents.ts).
  *
  * Convenções documentadas:
- * - ASSENTO FIXO DO ALUNO: CARTEIRAS[salaId] é gerada fileira a fileira a
- *   partir da frente (z=−29,8 é a fileira mais perto do quadro, z=−31,85).
- *   Os 5 alunos de cada sala ocupam deterministicamente os índices 0–4
- *   (fileira da frente, da esquerda para a direita) — ver estado.ts.
+ * - ASSENTO FIXO DO ALUNO: os 20 alunos de cada sala ocupam os índices
+ *   0–19 de CARTEIRAS[salaId] (a grade 5×4 é gerada da fileira da frente
+ *   para o fundo, da esquerda para a direita) — ver estado.ts.
+ * - RODÍZIO DE PROFESSORES (2 por sala): em AULA_1 ensina o professor de
+ *   slot PAR dentro da dupla da sala ((indice−2) % 2 === 0), em AULA_2 o
+ *   ÍMPAR; quem não ensina descansa na sala dos professores grande (Bloco C).
+ * - PINCÉIS: o professor EM AULA drena o pincel ativo (flag `ensinando` do
+ *   Agente → drenarPincelAtivo em agents.ts); com `precisaRepor`, vai ao
+ *   almoxarifado no fim do bloco de aula (fila `almoxarifado-fila-0…5`),
+ *   resolve (troca do estoque ou recarga na máquina Fill) e retoma a rotina.
+ * - TURNOS: na SAÍDA os 640 alunos saem pelo portão e ficam nos pontos
+ *   spawnRua até a CHEGADA seguinte, quando re-entram como a "nova turma"
+ *   (mesmos agentes — ver estado.prepararNovoTurno). Professores e
+ *   funcionários ficam no campus entre turnos (rotina idle plausível).
  * - PORTÃO: aberto em CHEGADA/RECREIO/ALMOCO_SAIDA, fechado em AULA_*
  *   (decisão aplicada em step.ts).
  * - FILA DA CANTINA: o último slot do contrato (z=17,05) fica dentro do
@@ -22,21 +32,26 @@
 
 import {
   ADMIN,
+  ALMOXARIFADO,
   CARTEIRAS,
   CONST,
   IDS_SALAS_AULA,
+  MESAS_PROFESSOR,
   PATIO,
   PORTARIA,
   QUADROS,
   REFEITORIO,
+  SALA_PROFESSORES_GRANDE,
   getSala,
 } from '../contracts/layout';
 import { ROSTER } from '../contracts/roster';
+import { turnoPara } from '../contracts/routine';
 import type { AnimState, Periodo, Vec3 } from '../contracts/types';
 import type { PersonagemInfo } from '../contracts/types';
 import { WAYPOINTS, getNodeIndex, nearestNode } from '../contracts/waypoints';
 import { resetBola } from './ball';
-import { liberarTudo, type Agente, type ModoTarefa, type Mundo } from './estado';
+import { liberarTudo, prepararNovoTurno, type Agente, type ModoTarefa, type Mundo } from './estado';
+import { precisaRepor } from './pinceis';
 import { andarDe, pernaDiretaLivre, planejarRota } from './navigation';
 import { faixa } from './rng';
 
@@ -84,6 +99,10 @@ interface NosPre {
   portaoDentro: number;
   portaoAprox2: number;
   guaritaAprox: number;
+  /** Nó da ponta da fila do almoxarifado (junto à máquina Fill). */
+  almoxFila0: number;
+  /** Nó central do almoxarifado (posto do almoxarife). */
+  almoxCentro: number;
   rua: number[];
   patio: number[];
   rondaDiretora: PontoRonda[];
@@ -114,6 +133,9 @@ function construirNos(): NosPre {
     ['sp-passeio-b-0-3', 'Rondando o passeio coberto'],
     ['sp-passeio-b-0-10', 'Rondando o passeio coberto'],
     ['sp-varanda-b-1-7', 'Rondando a varanda do Bloco B'],
+    ['sp-corredor-c-0-6', 'Rondando o corredor do Bloco C'],
+    ['sp-varanda-a-2-8', 'Rondando a varanda do 2º andar'],
+    ['sp-varanda-b-3-7', 'Rondando a varanda do 3º andar'],
     ['patio-mastro', 'Observando o pátio'],
     ['quadra-aprox-1', 'Observando a quadra'],
     ['portao-dentro', 'Observando o portão'],
@@ -138,6 +160,8 @@ function construirNos(): NosPre {
     portaoDentro: getNodeIndex('portao-dentro'),
     portaoAprox2: getNodeIndex('portao-aprox-2'),
     guaritaAprox: getNodeIndex('guarita-aprox'),
+    almoxFila0: getNodeIndex('almoxarifado-fila-0'),
+    almoxCentro: getNodeIndex('almoxarifado-centro'),
     rua,
     patio,
     rondaDiretora,
@@ -156,6 +180,8 @@ function nos(): NosPre {
 // ---------------------------------------------------------------------------
 
 function aplicarTarefa(_m: Mundo, a: Agente, t: Tarefa): void {
+  // Toda nova tarefa nasce sem o dreno de pincéis; cicloAula religa a flag.
+  a.ensinando = false;
   a.destino = t.destino;
   a.via.length = 0;
   for (const v of t.via) a.via.push(v);
@@ -569,73 +595,101 @@ function planoProfessor(m: Mundo, a: Agente, info: PersonagemInfo): void {
   }
 
   if (periodo === 'AULA_1' || periodo === 'AULA_2') {
-    cicloAula(m, a, info);
+    // Rodízio da dupla da sala: AULA_1 = slot par, AULA_2 = slot ímpar;
+    // quem não ensina descansa na sala dos professores grande (Bloco C).
+    if (professorDaVez(a, periodo)) cicloAula(m, a, info);
+    else salaDosProfessores(m, a);
     return;
   }
+
+  // Fim de um bloco de aula: pincéis gastos → resolve no almoxarifado
+  // ANTES de descansar (fila cheia: segue a rotina e tenta de novo no
+  // próximo replanejamento — `precisaRepor` continua true).
+  if (precisaRepor(a.indice - 2) && entrarNaFilaAlmoxarifado(m, a)) return;
 
   if (periodo === 'RECREIO') {
     salaDosProfessores(m, a);
     return;
   }
 
-  // ALMOCO_SAIDA: metade sai direto, metade almoça antes.
-  if (a.saiu) {
-    ficarNaRua(m, a);
-    return;
-  }
-  if (!a.comeu && !a.vaiSair) a.vaiSair = m.rng() < 0.5;
-  if (!a.comeu && !a.vaiSair) {
-    entrarNaFila(m, a);
-    return;
-  }
-  sairDaEscola(m, a);
+  // ALMOCO_SAIDA: os professores ficam no campus entre turnos (decisão W6,
+  // coerente com a SPEC seção Rotina — só os alunos trocam de turma).
+  // Descansam na sala dos professores ou conversam no pátio.
+  if (m.rng() < 0.7) salaDosProfessores(m, a);
+  else conversarNoPatio(m, a);
 }
 
-/** AULA: cicla escrever no quadro (~30–60 s) ↔ falar junto à mesa (~25–45 s). */
+/** Rodízio da dupla da sala: AULA_1 ensina o slot PAR, AULA_2 o ÍMPAR. */
+function professorDaVez(a: Agente, periodo: Periodo): boolean {
+  const slotNaDupla = (a.indice - 2) % 2;
+  return periodo === 'AULA_1' ? slotNaDupla === 0 : slotNaDupla === 1;
+}
+
+/**
+ * AULA: cicla escrever no quadro (~30–60 s) ↔ falar junto à mesa (~25–45 s).
+ * Posições derivadas do contrato (QUADROS/MESAS_PROFESSOR): o quadro pode
+ * estar na parede norte (Bloco A), sul (Bloco B) ou oeste (Bloco C).
+ * Ao final, liga a flag `ensinando` (dreno do pincel ativo em agents.ts).
+ */
 function cicloAula(m: Mundo, a: Agente, info: PersonagemInfo): void {
   const salaId = info.salaId ?? 'sala-1';
   const sala = getSala(salaId);
-  const cx = sala.rect.x + sala.rect.w / 2;
   const y = sala.andar * CONST.ALTURA_PISO;
+  const cx = sala.rect.x + sala.rect.w / 2;
+  const cz = sala.rect.z + sala.rect.d / 2;
+  const quadro = QUADROS[salaId];
+  const mesa = MESAS_PROFESSOR[salaId];
   a.alterna = !a.alterna;
   const materia = info.materia ?? 'Aula';
 
   if (a.alterna) {
+    // Junto ao quadro (0,45 m à frente dele, lado da turma), olhando para ele.
     aplicarTarefa(m, a, {
       nodeAlvo: nos().salaCentro.get(salaId) ?? -1,
-      destino: [cx + 0.6, y, -31.2],
+      destino: [
+        quadro.pos[0] + quadro.normal[0] * 0.45,
+        y,
+        quadro.pos[2] + quadro.normal[2] * 0.45,
+      ],
       via: [],
       faseFinal: 'fazendo',
       anim: 'write',
       duracao: faixa(m.rng, 30, 60),
       velocidade: CONST.VEL_ANDAR,
       correr: false,
-      face: QUADROS[salaId].pos,
+      face: quadro.pos,
       parceiro: -1,
       modo: 'nenhum',
       atvDeslocando: `Indo para a ${sala.nome}`,
       atvAcao: `Escrevendo no quadro da ${sala.nome}`,
     });
   } else {
+    // Junto à mesa do professor, de frente para a turma (centro da sala).
     aplicarTarefa(m, a, {
       nodeAlvo: nos().salaCentro.get(salaId) ?? -1,
-      destino: [cx - 0.9, y, -30.0],
+      destino: [mesa[0] + quadro.normal[0] * 0.4, y, mesa[2] + quadro.normal[2] * 0.4],
       via: [],
       faseFinal: 'fazendo',
       anim: 'talk',
       duracao: faixa(m.rng, 25, 45),
       velocidade: CONST.VEL_ANDAR,
       correr: false,
-      face: [cx, y, -26.5], // de frente para a turma
+      face: [cx, y, cz],
       parceiro: -1,
       modo: 'nenhum',
       atvDeslocando: `Indo para a ${sala.nome}`,
       atvAcao: `Dando aula de ${materia} na ${sala.nome}`,
     });
   }
+  // Em aula AGORA: drena o pincel ativo enquanto executa a ação (agents.ts).
+  a.ensinando = true;
 }
 
-/** Sala dos professores: come, conversa ou descansa numa das mesas. */
+/**
+ * Sala dos professores GRANDE (Bloco C): come, conversa ou descansa num dos
+ * 40 lugares (8 mesas × 5, contrato SALA_PROFESSORES_GRANDE). Lotada (ex.:
+ * RECREIO com os 64 professores): o excedente conversa no pátio.
+ */
 function salaDosProfessores(m: Mundo, a: Agente): void {
   const slot = reservarSlot(m.profMesas);
   if (slot < 0) {
@@ -643,8 +697,8 @@ function salaDosProfessores(m: Mundo, a: Agente): void {
     return;
   }
   a.profMesaRef = slot;
-  const mesa = ADMIN.profMesas[Math.floor(slot / 2)];
-  const destino: Vec3 = [mesa[0] + (slot % 2 === 0 ? -0.75 : 0.75), 0, mesa[2]];
+  const mesa = SALA_PROFESSORES_GRANDE.mesas[Math.floor(slot / 5)];
+  const destino = SALA_PROFESSORES_GRANDE.lugares[slot];
   const r = m.rng();
   const anim: AnimState = r < 0.4 ? 'eat' : r < 0.75 ? 'talk' : 'sit';
   const acao =
@@ -668,6 +722,35 @@ function salaDosProfessores(m: Mundo, a: Agente): void {
     atvDeslocando: 'Indo à sala dos professores',
     atvAcao: acao,
   });
+}
+
+/**
+ * Entrar na fila do almoxarifado (modo contínuo 'filaAlmox'; avança sozinho
+ * conforme a fila anda — ver agents.ts). Retorna false se a fila está cheia
+ * (6 posições do contrato ALMOXARIFADO.fila): o professor segue a rotina e
+ * tenta de novo no próximo replanejamento.
+ */
+function entrarNaFilaAlmoxarifado(m: Mundo, a: Agente): boolean {
+  if (m.filaAlmoxarifado.length >= ALMOXARIFADO.fila.length) return false;
+  m.filaAlmoxarifado.push(a.indice);
+  a.memoria = 0; // 0 = ainda não começou o atendimento na ponta
+  const slot = ALMOXARIFADO.fila[m.filaAlmoxarifado.length - 1];
+  aplicarTarefa(m, a, {
+    nodeAlvo: nos().almoxFila0,
+    destino: [slot[0], 0, slot[2]],
+    via: [],
+    faseFinal: 'fazendo',
+    anim: 'idle',
+    duracao: 9999,
+    velocidade: CONST.VEL_ANDAR,
+    correr: false,
+    face: ALMOXARIFADO.posMaquina,
+    parceiro: -1,
+    modo: 'filaAlmox',
+    atvDeslocando: 'Indo ao almoxarifado',
+    atvAcao: 'Na fila do almoxarifado',
+  });
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -768,7 +851,7 @@ const VIA_BALCAO: Vec3[] = [
 ];
 
 function planoCozinheira(m: Mundo, a: Agente): void {
-  const spot = REFEITORIO.balcao[a.indice === 74 ? 1 : 3];
+  const spot = REFEITORIO.balcao[a.indice === 706 ? 1 : 3];
   const servindo = m.periodo === 'RECREIO' || m.periodo === 'ALMOCO_SAIDA';
 
   if (servindo) {
@@ -792,7 +875,7 @@ function planoCozinheira(m: Mundo, a: Agente): void {
 
   a.alterna = !a.alterna;
   if (a.alterna) {
-    const parceira = a.indice === 74 ? 75 : 74;
+    const parceira = a.indice === 706 ? 707 : 706;
     const outra = m.agentes[parceira];
     aplicarTarefa(m, a, {
       nodeAlvo: nos().refeitorioCentro,
@@ -829,11 +912,11 @@ function planoCozinheira(m: Mundo, a: Agente): void {
 }
 
 // ---------------------------------------------------------------------------
-// FAXINEIROS (2) — áreas diferentes: 76 = pátio; 77 = corredores térreos
+// FAXINEIROS (2) — áreas diferentes: 708 = pátio; 709 = corredores térreos
 // ---------------------------------------------------------------------------
 
 function planoFaxineiro(m: Mundo, a: Agente): void {
-  const noPatio = a.indice === 76;
+  const noPatio = a.indice === 708;
   const lista = noPatio ? nos().faxPatio : nos().faxCorredor;
   const idx = Math.floor(a.memoria) % lista.length;
   a.memoria = idx + 1;
@@ -900,6 +983,55 @@ function planoPorteiro(m: Mundo, a: Agente): void {
 }
 
 // ---------------------------------------------------------------------------
+// ALMOXARIFE (1) — posto fixo no almoxarifado o dia todo
+// ---------------------------------------------------------------------------
+
+/**
+ * O almoxarife fica no posto (atrás da mesa da máquina Fill) o dia todo;
+ * os atendimentos da fila são implícitos (o tempo de serviço é da tarefa
+ * do professor — ver agents.atualizarModoAlmoxarifado). Variante ocasional:
+ * conferir o estoque junto à parede oeste (prancheta).
+ */
+function planoAlmoxarife(m: Mundo, a: Agente): void {
+  if (m.rng() < 0.75) {
+    aplicarTarefa(m, a, {
+      nodeAlvo: nos().almoxCentro,
+      destino: ALMOXARIFADO.postoAlmoxarife,
+      via: [],
+      faseFinal: 'fazendo',
+      anim: 'idle',
+      duracao: faixa(m.rng, 60, 120),
+      velocidade: CONST.VEL_ANDAR,
+      correr: false,
+      face: ALMOXARIFADO.posMaquina, // de frente para a máquina/fila
+      parceiro: -1,
+      modo: 'nenhum',
+      atvDeslocando: 'Voltando ao posto do almoxarifado',
+      atvAcao: 'No almoxarifado',
+    });
+    return;
+  }
+  // Conferência do estoque junto à parede oeste do almoxarifado.
+  const sala = getSala('almoxarifado');
+  const prateleira: Vec3 = [sala.rect.x + 0.8, 0, ALMOXARIFADO.mesa[2] - 3];
+  aplicarTarefa(m, a, {
+    nodeAlvo: nos().almoxCentro,
+    destino: prateleira,
+    via: [],
+    faseFinal: 'fazendo',
+    anim: 'write', // prancheta de conferência
+    duracao: faixa(m.rng, 25, 45),
+    velocidade: CONST.VEL_ANDAR,
+    correr: false,
+    face: [sala.rect.x, 0, prateleira[2]],
+    parceiro: -1,
+    modo: 'nenhum',
+    atvDeslocando: 'Indo conferir o estoque',
+    atvAcao: 'Conferindo o estoque do almoxarifado',
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Despachante principal
 // ---------------------------------------------------------------------------
 
@@ -932,6 +1064,9 @@ export function atribuirProximaTarefa(m: Mundo, a: Agente): void {
     case 'PORTEIRO':
       planoPorteiro(m, a);
       return;
+    case 'almoxarife':
+      planoAlmoxarife(m, a);
+      return;
   }
 }
 
@@ -941,8 +1076,13 @@ export function atribuirProximaTarefa(m: Mundo, a: Agente): void {
  * Também posiciona a bola (centro da quadra, ativa só no RECREIO).
  */
 export function aoMudarPeriodo(m: Mundo, periodo: Periodo): void {
+  // Troca de TURNO (manhã→tarde→noite): rearma a entrada dos 640 alunos,
+  // que re-entram como a "nova turma" (mesmos agentes — KISS, ver SPEC).
+  const turno = turnoPara(m.clockMin);
+  if (periodo === 'CHEGADA' && turno !== m.turno) prepararNovoTurno(m, turno);
   m.periodo = periodo;
   m.filaRefeitorio.length = 0;
+  m.filaAlmoxarifado.length = 0;
   for (const a of m.agentes) {
     liberarTudo(m, a);
     a.fase = 'fazendo';

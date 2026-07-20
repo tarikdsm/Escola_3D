@@ -205,7 +205,8 @@ export function Mesa({ pos, w = 1.4, d = 0.7, h = 0.75, cor = PALETTE.mesaProfes
 // Cadeira (assento + encosto + 4 pernas). Frente voltada a −Z com rotY = 0.
 // ---------------------------------------------------------------------------
 
-const GEO_CADEIRA = mesclarCaixas([
+/** Geometria da cadeira (exportada p/ instanciar muitas de uma vez). */
+export const GEO_CADEIRA = mesclarCaixas([
   { size: [0.42, 0.05, 0.42], offset: [0, 0.45, 0] },
   { size: [0.42, 0.45, 0.05], offset: [0, 0.7, 0.185] },
   { size: [0.05, 0.45, 0.05], offset: [-0.17, 0.225, -0.17] },

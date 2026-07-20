@@ -1,5 +1,5 @@
 /**
- * agents.ts — LOOP POR FRAME dos 79 agentes.
+ * agents.ts — LOOP POR FRAME dos 712 agentes.
  *
  * Máquina de estados por agente:
  * - 'indo': segue path (nós do grafo) → via (pontos off-graph) → destino
@@ -7,8 +7,9 @@
  *   os nós das escadas já carregam y, subir/descer funciona sozinho.
  *   Repath: sem progresso por > 3 s de jogo → replaneja do nó mais próximo.
  * - 'fazendo': executa a animação da tarefa até o timer acabar; os modos
- *   contínuos 'bola' (perseguir/chutar) e 'fila' (avançar na cantina) têm
- *   movimentação própria aqui dentro.
+ *   contínuos 'bola' (perseguir/chutar), 'fila' (cantina) e 'filaAlmox'
+ *   (almoxarifado) têm movimentação própria aqui dentro. O professor com a
+ *   flag `ensinando` drena o pincel ativo (ver pinceis.ts).
  * - 'conversando': talk com parceiro da roda (talkTarget mútuo, facing ao
  *   parceiro); ao acabar, desfaz a parceria dos dois lados.
  *
@@ -16,7 +17,7 @@
  * speed/talkTarget aos buffers SIM (lidos pelo render dos personagens).
  */
 
-import { CONST } from '../contracts/layout';
+import { ALMOXARIFADO, CONST } from '../contracts/layout';
 import {
   setAnim,
   setFacing,
@@ -31,6 +32,13 @@ import { chutarBola } from './ball';
 import { atribuirProximaTarefa, atribuirTarefaComer, slotPosFila } from './behaviors';
 import type { Agente, Mundo } from './estado';
 import { andarDe, planejarRota } from './navigation';
+import {
+  SEGUNDOS_RECARGA_POR_PINCEL,
+  contarPinceisBaixos,
+  drenarPincelAtivo,
+  getComAllcanci,
+  resolverPinceis,
+} from './pinceis';
 import { faixa } from './rng';
 
 /** Ciclos de animação por segundo de jogo (alimenta SIM.phase). */
@@ -216,6 +224,52 @@ function atualizarModoFila(m: Mundo, a: Agente, dtJogo: number): boolean {
   return false;
 }
 
+/**
+ * Avança na fila do almoxarifado conforme as posições vagam; na ponta,
+ * aguarda o atendimento — sem Allcanci: troca rápida (~10–18 s de jogo);
+ * com Allcanci: ~30 s de jogo por pincel baixo na máquina Fill — resolve
+ * os pincéis e zera o timer para replanejar já (o professor retoma a
+ * rotina no fim deste frame).
+ */
+function atualizarModoAlmoxarifado(m: Mundo, a: Agente, dtJogo: number): void {
+  const q = m.filaAlmoxarifado.indexOf(a.indice);
+  if (q < 0) {
+    a.modo = 'nenhum';
+    a.tempoRestante = 0;
+    return;
+  }
+  const slot = ALMOXARIFADO.fila[q];
+  const chegou = moverPlano(a, slot[0], slot[2], CONST.VEL_ANDAR, dtJogo);
+  if (!chegou) {
+    a.anim = 'walk';
+    a.velAtual = CONST.VEL_ANDAR;
+    return;
+  }
+  a.anim = 'idle';
+  a.velAtual = 0;
+  a.anguloAlvo = Math.atan2(
+    ALMOXARIFADO.posMaquina[0] - a.x,
+    ALMOXARIFADO.posMaquina[2] - a.z,
+  );
+  if (q !== 0) return;
+  if (a.memoria === 0) {
+    a.memoria = 1;
+    const baixos = contarPinceisBaixos(a.indice - 2);
+    a.tempoRestante = getComAllcanci()
+      ? Math.max(1, baixos) * SEGUNDOS_RECARGA_POR_PINCEL
+      : faixa(m.rng, 10, 18);
+    a.atividade = getComAllcanci()
+      ? 'Recarregando pincéis na máquina Fill'
+      : 'Trocando pincéis no almoxarifado';
+  } else if (a.tempoRestante <= dtJogo) {
+    m.filaAlmoxarifado.shift();
+    a.memoria = 0;
+    a.modo = 'nenhum';
+    resolverPinceis(a.indice - 2);
+    a.tempoRestante = 0; // replaneja no fim deste frame (retoma a rotina)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Transições de estado
 // ---------------------------------------------------------------------------
@@ -246,12 +300,12 @@ function parearNaRoda(m: Mundo, a: Agente): void {
   }
 }
 
-/** Pareia professores conversando na mesma mesa da sala dos professores. */
+/** Pareia professores conversando na mesma mesa (5 lugares por mesa). */
 function parearNaMesaProf(m: Mundo, a: Agente): void {
-  const mesa = Math.floor(a.profMesaRef / 2);
+  const mesa = Math.floor(a.profMesaRef / 5);
   for (const o of m.agentes) {
     if (o.indice === a.indice || o.profMesaRef < 0) continue;
-    if (Math.floor(o.profMesaRef / 2) !== mesa) continue;
+    if (Math.floor(o.profMesaRef / 5) !== mesa) continue;
     if (o.fase !== 'fazendo' || o.anim !== 'talk' || o.parceiroTalk >= 0) continue;
     o.parceiroTalk = a.indice;
     a.parceiroTalk = o.indice;
@@ -288,15 +342,20 @@ export function atualizarAgente(m: Mundo, a: Agente, dtJogo: number): void {
     return;
   }
 
-  // 'fazendo' / 'conversando'
+  // 'fazendo' / 'conversando' — o professor executando a ação de aula
+  // consome o pincel ativo (~1,5 %/min-jogo; rotação a cada ~2 min).
+  if (a.ensinando) drenarPincelAtivo(a.indice - 2, dtJogo / 60);
+
   if (a.modo === 'bola') {
     atualizarModoBola(m, a, dtJogo);
   } else if (a.modo === 'fila') {
     if (atualizarModoFila(m, a, dtJogo)) return; // saiu da fila para comer
+  } else if (a.modo === 'filaAlmox') {
+    atualizarModoAlmoxarifado(m, a, dtJogo);
   }
 
   a.tempoRestante -= dtJogo;
-  if (a.tempoRestante > 0 || a.modo === 'fila') return; // fila espera a vez
+  if (a.tempoRestante > 0 || a.modo === 'fila' || a.modo === 'filaAlmox') return; // fila espera a vez
   terminarAcao(m, a);
   atribuirProximaTarefa(m, a);
 }

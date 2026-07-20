@@ -17,9 +17,14 @@
  *    Só empurra quem está em movimento ('indo' ou perseguindo a bola):
  *    pares parados (fila da cantina com 0,45 m entre slots, bancos,
  *    carteiras) ficam intactos.
+ *    Agente SOBRE UMA ESCADA só pode ser empurrado ao longo da rampa:
+ *    o novo ponto precisa continuar na projeção da escada e o y é
+ *    realinhado por `alturaNaRampa` com yRef = y atual (desambigua os
+ *    lances 1 e 3, sobrepostos em planta na meia-volta) — senão o
+ *    empurrão é descartado (o agente não "cai" da lateral do lance).
  */
 
-import { CONST } from '../contracts/layout';
+import { CONST, STAIRS, alturaNaRampa } from '../contracts/layout';
 import type { Andar, Vec3 } from '../contracts/types';
 import { WAYPOINTS, cruzaParede, findPath, nearestNode } from '../contracts/waypoints';
 import type { Agente, Mundo } from './estado';
@@ -31,9 +36,9 @@ const DIST_SEPARACAO = 0.55;
 // Roteamento
 // ---------------------------------------------------------------------------
 
-/** Andar lógico da posição (para roteamento/separação). */
+/** Andar lógico da posição (para roteamento/separação): 4 pavimentos. */
 export function andarDe(y: number): Andar {
-  return y >= 1.5 ? 1 : 0;
+  return Math.max(0, Math.min(3, Math.round(y / CONST.ALTURA_PISO))) as Andar;
 }
 
 /**
@@ -101,7 +106,7 @@ export function separacao(m: Mundo, dtJogo: number): void {
     const a = agentes[i];
     const cx = Math.floor(a.x);
     const cz = Math.floor(a.z);
-    const an = a.y >= 1.5 ? 1 : 0;
+    const an = andarDe(a.y);
     celulaX[i] = cx;
     celulaZ[i] = cz;
     andarCel[i] = an;
@@ -162,11 +167,32 @@ export function separacao(m: Mundo, dtJogo: number): void {
   }
 }
 
+/**
+ * Altura da escada sob (x, z) para quem está na cota `yRef` — ou null se o
+ * ponto está fora da projeção das escadas (ou longe demais no vertical).
+ * O `yRef` desambigua os lances 1 e 3, sobrepostos em planta (meia-volta).
+ */
+function alturaEscadaEm(x: number, z: number, yRef: number): number | null {
+  for (const s of STAIRS) {
+    const h = alturaNaRampa(s, x, z, yRef);
+    if (h !== null && Math.abs(h - yRef) <= 0.75) return h;
+  }
+  return null;
+}
+
 /** Desloca o agente se a linha até o novo ponto não cruzar parede. */
 function empurra(a: Agente, nx: number, nz: number, passo: number): void {
   const novoX = a.x + nx * passo;
   const novoZ = a.z + nz * passo;
   if (cruzaParede([a.x, a.y, a.z], [novoX, a.y, novoZ], andarDe(a.y))) return;
+  // Sobre uma escada, o empurrão não pode tirar o agente da rampa (ele
+  // "cairia" da lateral do lance): ou o novo ponto continua na projeção da
+  // escada (e o y é realinhado à rampa) ou o empurrão é descartado.
+  if (alturaEscadaEm(a.x, a.z, a.y) !== null) {
+    const h = alturaEscadaEm(novoX, novoZ, a.y);
+    if (h === null) return;
+    a.y = h;
+  }
   a.x = novoX;
   a.z = novoZ;
 }

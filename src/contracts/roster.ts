@@ -1,21 +1,32 @@
 /**
- * roster.ts — ELENCO COMPLETO: exatamente 79 personagens.
+ * roster.ts — ELENCO COMPLETO: exatamente 712 personagens (expansão escola em U).
  *
- * Ordem estável dos índices (0–78), usada nos buffers de simulação (SIM):
- * - 0: DIRETORA · 1: SECRETARIO · 2–13: PROFESSORES (prof-1…prof-12, um por sala)
- * - 14–73: ALUNOS (aluno-1…aluno-60, 5 por sala, sala-1…sala-12)
- * - 74–75: COZINHEIRAS · 76–77: FAXINEIROS · 78: PORTEIRO
+ * Ordem estável dos índices (0–711), usada nos buffers de simulação (SIM):
+ * - 0: DIRETORA · 1: SECRETARIO
+ * - 2–65: PROFESSORES (prof-1…prof-64, DOIS por sala, sala-1…sala-32;
+ *   a sala k tem os profs de índices 2+2(k−1) e 2+2(k−1)+1, cada um com matéria)
+ * - 66–705: ALUNOS (aluno-1…aluno-640, 20 por sala;
+ *   aluno de índice i pertence a `sala-${⌊(i−66)/20⌋+1}`)
+ * - 706–707: COZINHEIRAS · 708–709: FAXINEIROS · 710: PORTEIRO
+ * - 711: ALMOXARIFE (papel novo 'almoxarife', paleta adulto — funcionário
+ *   exclusivo do almoxarifado do Bloco C, ver SPEC)
+ *
+ * Somente a turma do turno atual fica no campus; os 640 slots de alunos são
+ * reutilizados entre os 3 turnos (KISS — ver SPEC, seção Rotina).
  *
  * As paletas são geradas deterministicamente a partir de listas de tons com
  * passos de rotação diferentes, garantindo combinações distintas por personagem.
+ * Nomes também são determinísticos: os 12 professores e os 60 alunos originais
+ * foram mantidos (mesmos nomes/sexo, novos índices); os demais são gerados por
+ * combinação indexada de listas de nomes próprios e sobrenomes (sem RNG).
  *
  * EDIÇÕES DE CONTRATO AUTORIZADAS (melhoria de realismo dos NPCs):
- * 1. Cada entrada ganha `sexo: 'M' | 'F'`, atribuído nome a nome (nomes
- *    próprios brasileiros comuns; alunos alternam F/M na lista original e
- *    foram revisados um a um). Ids, nomes e índices NÃO mudaram.
- * 2. Listas PELES e CABELOS ampliadas (mais tons de pele e de cabelo,
- *    incluindo preto-azulado, castanhos claros e grisalho) — os tons
- *    originais foram mantidos; só há mais variedade nas combinações.
+ * 1. Cada entrada tem `sexo: 'M' | 'F'`, atribuído nome a nome (nos trechos
+ *    gerados, alterna F/M de forma determinística).
+ * 2. Listas PELES e CABELOS ampliadas (mais tons de pele e de cabelo).
+ *
+ * EDIÇÃO DE CONTRATO (expansão 712): papel 'almoxarife' adicionado ao tipo
+ * `Papel` em types.ts — valor em minúsculas, conforme a SPEC (seção Roster).
  */
 
 import type { PaletaPersonagem, Papel, PersonagemInfo, Sexo } from './types';
@@ -62,10 +73,12 @@ function paletaAdulto(i: number, camisa?: string): PaletaPersonagem {
 }
 
 // ---------------------------------------------------------------------------
-// Professores (um por sala 1–12, matérias variadas; sexo por nome próprio)
+// Professores: 64 no total (2 por sala, salas 1–32).
+// Os 12 originais foram mantidos; os 52 restantes são gerados deterministicamente
+// (nome único por combinação indexada — ver montarProfessores()).
 // ---------------------------------------------------------------------------
 
-const PROFESSORES: { nome: string; materia: string; sexo: Sexo }[] = [
+const PROFESSORES_ORIGINAIS: { nome: string; materia: string; sexo: Sexo }[] = [
   { nome: 'Mariana Souza Freitas', materia: 'Português', sexo: 'F' },
   { nome: 'Ricardo Almeida Prado', materia: 'Matemática', sexo: 'M' },
   { nome: 'José Carlos Bandeira', materia: 'História', sexo: 'M' },
@@ -80,11 +93,56 @@ const PROFESSORES: { nome: string; materia: string; sexo: Sexo }[] = [
   { nome: 'Sérgio Moura Guimarães', materia: 'Redação/Literatura', sexo: 'M' },
 ];
 
+// Matérias em rotação para os professores gerados (mesma lista dos originais).
+const MATERIAS = PROFESSORES_ORIGINAIS.map((p) => p.materia);
+
+// Nomes próprios dos professores gerados (26 por sexo; todos distintos entre si
+// e dos nomes dos alunos/adultos gerados — os sobrenomes também são de listas
+// exclusivas, então o nome completo nunca colide com os demais papéis).
+const PROF_NOMES_F = [
+  'Adriana', 'Aline', 'Amanda', 'Carla', 'Cristina', 'Dalva', 'Denise',
+  'Eliane', 'Fabiana', 'Gisele', 'Helena', 'Ingrid', 'Jaqueline', 'Kátia',
+  'Letícia', 'Luciana', 'Mônica', 'Nádia', 'Patrícia', 'Renata', 'Sabrina',
+  'Tânia', 'Vânia', 'Wanda', 'Zilda', 'Priscila',
+];
+const PROF_NOMES_M = [
+  'Alexandre', 'Bruno', 'Cássio', 'Daniel', 'Elias', 'Fábio', 'Gerson',
+  'Hugo', 'Ivan', 'Jonas', 'Kleber', 'Leandro', 'Márcio', 'Nelson',
+  'Osvaldo', 'Pablo', 'Quintino', 'Roberto', 'Sandro', 'Tiago', 'Ubiratan',
+  'Vicente', 'William', 'Xavier', 'Yuri', 'Zaqueu',
+];
+// Sobrenomes exclusivos dos professores gerados (disjuntos dos dos alunos).
+const PROF_SOBRENOMES_A = [
+  'Castellani', 'Dourado', 'Esteves', 'Fontenele', 'Galvão', 'Hespanhol',
+  'Ibiapina', 'Jardim', 'Kfouri', 'Leitão', 'Madeira', 'Noronha', 'Passos',
+];
+const PROF_SOBRENOMES_B = [
+  'Queiroga', 'Rangel', 'Teixeira', 'Uchôa', 'Varela', 'Wanderley',
+  'Ximenes', 'Yared', 'Zanetti', 'Beltrão',
+];
+
+/** Lista final dos 64 professores, em ordem estável (prof-1…prof-64). */
+function montarProfessores(): { nome: string; materia: string; sexo: Sexo }[] {
+  const lista = [...PROFESSORES_ORIGINAIS];
+  for (let jj = 0; jj < 64 - PROFESSORES_ORIGINAIS.length; jj++) {
+    const sexo: Sexo = jj % 2 === 0 ? 'F' : 'M';
+    const kk = Math.floor(jj / 2); // 0–25 dentro do sexo
+    const nome = sexo === 'F'
+      ? `${pick(PROF_NOMES_F, kk)} ${pick(PROF_SOBRENOMES_A, kk * 3 + 1)} ${pick(PROF_SOBRENOMES_B, kk * 5 + 2)}`
+      : `${pick(PROF_NOMES_M, kk)} ${pick(PROF_SOBRENOMES_A, kk * 3 + 4)} ${pick(PROF_SOBRENOMES_B, kk * 5 + 7)}`;
+    lista.push({ nome, materia: pick(MATERIAS, PROFESSORES_ORIGINAIS.length + jj), sexo });
+  }
+  return lista;
+}
+
 // ---------------------------------------------------------------------------
-// Alunos (60 nomes; sala = índice ÷ 5 + 1; sexo revisado nome a nome)
+// Alunos: 640 no total (20 por sala, salas 1–32).
+// Os 60 originais foram mantidos; os 580 restantes são gerados deterministicamente
+// (ver montarAlunos()): sexo alterna F/M e o par (nome, sobrenome A) é único
+// por índice dentro de cada sexo.
 // ---------------------------------------------------------------------------
 
-const ALUNOS: { nome: string; sexo: Sexo }[] = [
+const ALUNOS_ORIGINAIS: { nome: string; sexo: Sexo }[] = [
   { nome: 'Ana Clara Mendes', sexo: 'F' },
   { nome: 'Pedro Henrique Lopes', sexo: 'M' },
   { nome: 'Maria Eduarda Santos', sexo: 'F' },
@@ -147,6 +205,47 @@ const ALUNOS: { nome: string; sexo: Sexo }[] = [
   { nome: 'Bryan Gabriel Toscano', sexo: 'M' },
 ];
 
+// Nomes próprios dos alunos gerados (32 por sexo → 32×14 = 448 combinações
+// (nome, sobrenome A) por sexo, de sobra para os 290 necessários).
+const ALUNO_NOMES_F = [
+  'Aurora', 'Helena', 'Catarina', 'Lívia', 'Beatriz', 'Clara', 'Marina',
+  'Luísa', 'Antônia', 'Débora', 'Elisa', 'Fernanda', 'Gabriela', 'Isadora',
+  'Júlia', 'Larissa', 'Maitê', 'Natália', 'Olívia', 'Pietra', 'Rafaela',
+  'Sara', 'Tainá', 'Ursula', 'Vitória', 'Yasmin', 'Zuleica', 'Bruna',
+  'Camila', 'Daniela', 'Eduarda', 'Flávia',
+];
+const ALUNO_NOMES_M = [
+  'Miguel', 'Arthur', 'Heitor', 'Gael', 'Davi', 'Bernardo', 'Samuel',
+  'João', 'Pedro', 'Lucas', 'Matheus', 'Gustavo', 'Rafael', 'Felipe',
+  'Daniel', 'Bruno', 'Eduardo', 'Leonardo', 'Rodrigo', 'Marcelo', 'Thiago',
+  'Caio', 'Igor', 'Vinícius', 'André', 'Fábio', 'Leandro', 'Otávio',
+  'Renan', 'Ítalo', 'Kaique', 'Emanuel',
+];
+// Sobrenomes dos alunos gerados (disjuntos dos dos professores gerados).
+const ALUNO_SOBRENOMES_A = [
+  'Albuquerque', 'Barroso', 'Castilho', 'Drummond', 'Espíndola', 'Fagundes',
+  'Gusmão', 'Holanda', 'Junqueira', 'Lacerda', 'Mascarenhas', 'Navarro',
+  'Quintana', 'Sarmento',
+];
+const ALUNO_SOBRENOMES_B = [
+  'Peixoto', 'Rezende', 'Valadares', 'Figueiredo', 'Sampaio', 'Vasques',
+  'Guimarães', 'Bentes', 'Toscano', 'Sales',
+];
+
+/** Lista final dos 640 alunos, em ordem estável (aluno-1…aluno-640). */
+function montarAlunos(): { nome: string; sexo: Sexo }[] {
+  const lista = [...ALUNOS_ORIGINAIS];
+  for (let jj = 0; jj < 640 - ALUNOS_ORIGINAIS.length; jj++) {
+    const sexo: Sexo = jj % 2 === 0 ? 'F' : 'M';
+    const kk = Math.floor(jj / 2); // 0–289 dentro do sexo
+    const nome = sexo === 'F'
+      ? `${pick(ALUNO_NOMES_F, kk % 32)} ${pick(ALUNO_SOBRENOMES_A, Math.floor(kk / 32))} ${pick(ALUNO_SOBRENOMES_B, kk * 7 + 3)}`
+      : `${pick(ALUNO_NOMES_M, kk % 32)} ${pick(ALUNO_SOBRENOMES_A, Math.floor(kk / 32))} ${pick(ALUNO_SOBRENOMES_B, kk * 7 + 5)}`;
+    lista.push({ nome, sexo });
+  }
+  return lista;
+}
+
 // ---------------------------------------------------------------------------
 // Montagem do elenco (ordem/índices estáveis — ver cabeçalho)
 // ---------------------------------------------------------------------------
@@ -163,42 +262,49 @@ function entrada(
   return { id, indice, nome, papel, sexo, paleta, ...extra };
 }
 
+const PROFESSORES = montarProfessores();
+const ALUNOS = montarAlunos();
+
 export const ROSTER: PersonagemInfo[] = [
   entrada(0, 'diretora-1', 'Heloísa Martins Ribeiro', 'DIRETORA', paletaAdulto(0, '#b03a2e'), 'F'),
   entrada(1, 'secretario-1', 'Célio Andrade Nogueira', 'SECRETARIO', paletaAdulto(1, '#5b8fd6'), 'M'),
 
-  // 12 professores (índices 2–13)
+  // 64 professores (índices 2–65; sala k = profs 2+2(k−1) e 2+2(k−1)+1)
   ...PROFESSORES.map((p, i) =>
     entrada(2 + i, `prof-${i + 1}`, p.nome, 'PROFESSOR', paletaAdulto(2 + i), p.sexo, {
       materia: p.materia,
-      salaId: `sala-${i + 1}`,
+      salaId: `sala-${Math.floor(i / 2) + 1}`,
     }),
   ),
 
-  // 60 alunos (índices 14–73; 5 por sala)
+  // 640 alunos (índices 66–705; 20 por sala)
   ...ALUNOS.map((a, i) =>
-    entrada(14 + i, `aluno-${i + 1}`, a.nome, 'ALUNO', paletaAluno(i), a.sexo, {
-      salaId: `sala-${Math.floor(i / 5) + 1}`,
+    entrada(66 + i, `aluno-${i + 1}`, a.nome, 'ALUNO', paletaAluno(i), a.sexo, {
+      salaId: `sala-${Math.floor(i / 20) + 1}`,
     }),
   ),
 
-  // Equipe de apoio (índices 74–78)
-  entrada(74, 'coz-1', 'Cleusa Aparecida Ramos', 'COZINHEIRA', paletaAdulto(14, '#f5f5f0'), 'F'),
-  entrada(75, 'coz-2', 'Iracema Souza Pinto', 'COZINHEIRA', paletaAdulto(15, '#f5f5f0'), 'F'),
-  entrada(76, 'fax-1', 'Sebastião Ferreira Luz', 'FAXINEIRO', paletaAdulto(16, '#7fb7d9'), 'M'),
-  entrada(77, 'fax-2', 'Márcia Regina Tavares', 'FAXINEIRO', paletaAdulto(17, '#7fb7d9'), 'F'),
-  entrada(78, 'porteiro-1', 'Joaquim Benedito Silva', 'PORTEIRO', paletaAdulto(18, '#4a6fa5'), 'M'),
+  // Equipe de apoio (índices 706–711)
+  entrada(706, 'coz-1', 'Cleusa Aparecida Ramos', 'COZINHEIRA', paletaAdulto(14, '#f5f5f0'), 'F'),
+  entrada(707, 'coz-2', 'Iracema Souza Pinto', 'COZINHEIRA', paletaAdulto(15, '#f5f5f0'), 'F'),
+  entrada(708, 'fax-1', 'Sebastião Ferreira Luz', 'FAXINEIRO', paletaAdulto(16, '#7fb7d9'), 'M'),
+  entrada(709, 'fax-2', 'Márcia Regina Tavares', 'FAXINEIRO', paletaAdulto(17, '#7fb7d9'), 'F'),
+  entrada(710, 'porteiro-1', 'Joaquim Benedito Silva', 'PORTEIRO', paletaAdulto(18, '#4a6fa5'), 'M'),
+  entrada(711, 'almoxarife-1', 'Genaro Batista Lemos', 'almoxarife', paletaAdulto(19, '#8d6e63'), 'M'),
 ];
 
-// Checagem de sanidade em tempo de módulo (falha rápida se alguém editar errado).
-if (ROSTER.length !== 79) {
-  throw new Error(`ROSTER deve ter exatamente 79 personagens (encontrados ${ROSTER.length}).`);
+// Checagens de sanidade em tempo de módulo (falha rápida se alguém editar errado).
+if (ROSTER.length !== 712) {
+  throw new Error(`ROSTER deve ter exatamente 712 personagens (encontrados ${ROSTER.length}).`);
 }
 if (new Set(ROSTER.map((p) => p.id)).size !== ROSTER.length) {
   throw new Error('ROSTER contém ids duplicados.');
 }
 if (new Set(ROSTER.map((p) => p.nome)).size !== ROSTER.length) {
   throw new Error('ROSTER contém nomes duplicados.');
+}
+if (!ROSTER.every((p, i) => p.indice === i)) {
+  throw new Error('ROSTER contém índices fora da ordem estável 0–711.');
 }
 
 /** Busca um personagem pelo id estável. */

@@ -82,13 +82,14 @@ export function HelpOverlay() {
 
         <h2>Sobre a simulação</h2>
         <p>
-          A escola vive um dia letivo das 7h às 12h: os alunos chegam pela rua, assistem às
-          aulas, saem para o recreio quando o sino toca e almoçam antes de ir embora.
+          A escola vive três turnos por dia — manhã, tarde e noite, das 7h às 23h: os
+          alunos chegam pela rua, assistem às aulas, saem para o recreio quando o sino
+          toca e vão embora no fim do turno.
         </p>
         <p>
-          Professores, cozinheiras, faxineiros, secretário, diretora e porteiro também seguem
-          suas rotinas. Use os botões 1×/2×/4× para acelerar o relógio e o minimapa para
-          encontrar cada um.
+          Professores, cozinheiras, faxineiros, secretário, diretora, porteiro e
+          almoxarife também seguem suas rotinas. Use os botões 1×/2×/4× para acelerar o
+          relógio e clique num personagem para ver o que está fazendo.
         </p>
       </div>
     </div>

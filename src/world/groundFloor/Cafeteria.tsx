@@ -1,8 +1,10 @@
 /**
- * Cafeteria.tsx — Refeitório/Cantina (x −29…−11, z 13…20):
- * - 3 mesas comunitárias com bancos (âncoras REFEITORIO.mesas, instanciadas);
+ * Cafeteria.tsx — Refeitório/Cantina (x −33…−11, z 13…20 — estendido na
+ * expansão, com mais mesas):
+ * - 4 mesas comunitárias com bancos (âncoras REFEITORIO.mesas, instanciadas);
  * - balcão da cantina (o AABB já é renderizado como parede) com tampo de
- *   inox, bandejas e cartaz "MERENDA" pendurado;
+ *   inox, bandejas (1 por ponto de serviço de REFEITORIO.balcao) e cartaz
+ *   "MERENDA" pendurado;
  * - cozinha visível atrás do balcão (z 17,1…20): fogão industrial, panelas,
  *   pia, prateleiras e parede de azulejo.
  */
@@ -127,9 +129,9 @@ export function Cafeteria() {
       {/* Tampo de inox sobre o balcão (o corpo do balcão é um AABB de WALLS,
           já renderizado junto às paredes do térreo: x −27…−14, z ~17) */}
       <Caixa pos={[-20.5, 1.13, 17]} size={[13.3, 0.06, 0.34]} material={MAT_INOX} receiveShadow />
-      {/* Bandejas sobre o balcão */}
-      {[-26, -24, -22, -20, -18].map((x) => (
-        <Caixa key={x} pos={[x, 1.175, 17]} size={[0.4, 0.03, 0.3]} cor={'#e8e8e8'} />
+      {/* Bandejas sobre o balcão (1 por ponto de serviço da âncora balcao) */}
+      {REFEITORIO.balcao.map((p) => (
+        <Caixa key={p[0]} pos={[p[0], 1.175, 17]} size={[0.4, 0.03, 0.3]} cor={'#e8e8e8'} />
       ))}
 
       {/* Cartaz MERENDA pendurado sobre o balcão */}

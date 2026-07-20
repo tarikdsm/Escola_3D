@@ -1,13 +1,17 @@
 /**
- * Classrooms.tsx — Salas de aula 1–6 (térreo do Bloco A), mobiliadas:
- * - 180 carteiras (30/sala) em DUAS InstancedMesh (partes de madeira + metal);
+ * Classrooms.tsx — Salas de aula do TÉRREO: sala-1…sala-4 (Bloco A) e
+ * sala-25/sala-26 (Bloco C), mobiliadas:
+ * - 120 carteiras (20/sala, grade 5×4) em DUAS InstancedMesh (partes de
+ *   madeira + metal), cada sala com a rotação derivada da normal do quadro
+ *   (Bloco A: quadro na parede norte; Bloco C: quadro na parede oeste);
  * - QUADRO BRANCO (âncoras QUADROS): moldura de alumínio por sala + bandeja
  *   com 3 marcadores e apagador; a superfície escrita/revelada vem de
  *   <QuadrosBrancos> (montado UMA vez no Classrooms, não por sala);
  * - mesa + cadeira do professor (âncoras MESAS_PROFESSOR);
- * - armário alto no canto, 3 cartazes educativos e ventilador de teto por sala.
+ * - armário alto na parede do quadro, 3 cartazes educativos e ventilador de teto.
  *
- * Orientação: o quadro fica na parede norte (z=−32); alunos olham para −Z.
+ * Orientação 100% derivada dos contratos: QUADROS[id].normal aponta da parede
+ * do quadro para dentro da sala; os alunos olham no sentido oposto (−normal).
  */
 
 import { CARTEIRAS, IDS_SALAS_AULA, MESAS_PROFESSOR, QUADROS, getSala } from '../../contracts/layout';
@@ -28,16 +32,76 @@ import { Ventilador } from './props/Fan';
 import { QuadrosBrancos } from '../QuadrosBrancos';
 import { COR_MARCADOR } from '../quadroBranco';
 
-/** Salas do térreo (sala-1 … sala-6). */
-const SALAS_TERREO = IDS_SALAS_AULA.slice(0, 6);
+/** Salas de aula do térreo (Bloco A: sala-1…4; Bloco C: sala-25 e sala-26). */
+const SALAS_TERREO = IDS_SALAS_AULA.filter((id) => getSala(id).andar === 0);
 
 // ---------------------------------------------------------------------------
-// Carteiras: 2 InstancedMesh para as 180 carteiras (30 × 6 salas)
+// Orientação de cada sala, derivada da normal do seu quadro
 // ---------------------------------------------------------------------------
 
-/** Partes de madeira da carteira escolar combinada (tampo + assento + encosto). */
+interface OrientacaoSala {
+  /** Normal do quadro (aponta p/ dentro da sala; os alunos olham p/ −n). */
+  n: Vec3;
+  cx: number;
+  cz: number;
+  w: number;
+  d: number;
+  /** Tangente horizontal da parede do quadro = lado ESQUERDO de quem olha o quadro. */
+  t: [number, number];
+  /** Centro (x, z) da parede do quadro. */
+  paredeQuadro: [number, number];
+  /** Comprimento da parede do quadro ao longo da tangente. */
+  compQuadro: number;
+  /** Centro (x, z) da parede dos fundos (oposta ao quadro). */
+  paredeFundos: [number, number];
+  /** rotY que leva a "frente −Z" das carteiras ao sentido do quadro (−n). */
+  rotYCarteira: number;
+  /** rotY da mesa do professor (largura paralela à parede do quadro). */
+  rotYMesa: number;
+  /** rotY da cadeira do professor (olhando p/ os alunos, sentido +n). */
+  rotYCadeiraProf: number;
+  /** rotY dos cartazes da parede dos fundos (estampa virada p/ −n). */
+  rotYFundos: number;
+  /** rotY do cartaz da parede lateral esquerda (estampa virada p/ −t). */
+  rotYLateral: number;
+}
+
+function orientacaoSala(salaId: string): OrientacaoSala {
+  const { x, z, w, d } = getSala(salaId).rect;
+  const n = QUADROS[salaId].normal;
+  const cx = x + w / 2;
+  const cz = z + d / 2;
+  // Girando a normal 90° em torno de Y: tangente da parede do quadro, que
+  // coincide com a esquerda de quem olha o quadro (convenções deste projeto).
+  const t: [number, number] = [-n[2], n[0]];
+  return {
+    n,
+    cx,
+    cz,
+    w,
+    d,
+    t,
+    paredeQuadro: [cx - n[0] * (w / 2), cz - n[2] * (d / 2)],
+    compQuadro: n[0] !== 0 ? d : w,
+    paredeFundos: [cx + n[0] * (w / 2), cz + n[2] * (d / 2)],
+    rotYCarteira: Math.atan2(n[0], n[2]),
+    rotYMesa: Math.atan2(-t[1], t[0]),
+    rotYCadeiraProf: Math.atan2(-n[0], -n[2]),
+    rotYFundos: Math.atan2(-n[0], -n[2]),
+    rotYLateral: Math.atan2(-t[0], -t[1]),
+  };
+}
+
+const ORIENTACOES = new Map(SALAS_TERREO.map((id) => [id, orientacaoSala(id)] as const));
+
+// ---------------------------------------------------------------------------
+// Carteiras: 2 InstancedMesh para as 120 carteiras (20 × 6 salas)
+// ---------------------------------------------------------------------------
+
+/** Partes de madeira da carteira escolar combinada (tampo + assento + encosto).
+ *  Modelada com o aluno olhando para −Z (antes do rotY da sala). */
 const GEO_CARTEIRA_MADEIRA = mesclarCaixas([
-  // Tampo (à frente do aluno, que olha para −Z)
+  // Tampo (à frente do aluno)
   { size: [0.55, 0.04, 0.4], offset: [0, 0.62, -0.33] },
   // Assento
   { size: [0.42, 0.04, 0.4], offset: [0, 0.4, 0.05] },
@@ -53,10 +117,11 @@ const GEO_CARTEIRA_METAL = mesclarCaixas([
   { size: [0.05, 0.6, 0.05], offset: [0.18, 0.3, 0.25] },
 ]);
 
-/** 180 posições de assento (âncoras CARTEIRAS das salas 1–6). */
-const ITENS_CARTEIRAS: Instancia[] = SALAS_TERREO.flatMap((id) =>
-  CARTEIRAS[id].map((pos) => ({ pos: [pos[0], pos[1], pos[2]] as Vec3 })),
-);
+/** 120 posições de assento (âncoras CARTEIRAS) + rotY da sala correspondente. */
+const ITENS_CARTEIRAS: Instancia[] = SALAS_TERREO.flatMap((id) => {
+  const rotY = ORIENTACOES.get(id)!.rotYCarteira;
+  return CARTEIRAS[id].map((pos) => ({ pos: [pos[0], pos[1], pos[2]] as Vec3, rotY }));
+});
 
 function CarteirasInstanciadas() {
   return (
@@ -114,30 +179,53 @@ function QuadroSala({ salaId }: { salaId: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Mobiliário individual de cada sala
+// Mobiliário individual de cada sala (tudo derivado da orientação do quadro)
 // ---------------------------------------------------------------------------
 
 const CARTAZES: TipoCartaz[] = ['alfabeto', 'tabuada', 'mapa'];
 
 function MobiliarioSala({ salaId }: { salaId: string }) {
-  const sala = getSala(salaId);
-  const cx = sala.rect.x + sala.rect.w / 2;
-  const x0 = sala.rect.x;
+  const o = ORIENTACOES.get(salaId)!;
   const mesaProf = MESAS_PROFESSOR[salaId];
+  const { n, t } = o;
+  // Armário encostado na extremidade esquerda da parede do quadro (frente
+  // virada p/ dentro da sala — mesmo rotY das carteiras).
+  const armPos: Vec3 = [
+    o.paredeQuadro[0] + t[0] * (o.compQuadro / 2 - 0.68) + n[0] * 0.38,
+    0,
+    o.paredeQuadro[1] + t[1] * (o.compQuadro / 2 - 0.68) + n[2] * 0.38,
+  ];
+  // Cartazes dos fundos, a 3,2 m do centro da parede (a porta do corredor
+  // fica no centro dessa parede) e a 0,11 m dela.
+  const cartazFundo = (sinal: number): Vec3 => [
+    o.paredeFundos[0] + t[0] * 3.2 * sinal - n[0] * 0.11,
+    1.7,
+    o.paredeFundos[1] + t[1] * 3.2 * sinal - n[2] * 0.11,
+  ];
+  // Cartaz da lateral esquerda de quem olha o quadro (parede sem porta).
+  const metadeLateral = Math.abs(t[0]) * (o.w / 2) + Math.abs(t[1]) * (o.d / 2);
+  const cartazLateral: Vec3 = [
+    o.cx + t[0] * metadeLateral - t[0] * 0.11,
+    1.7,
+    o.cz + t[1] * metadeLateral - t[1] * 0.11,
+  ];
   return (
     <group>
       <QuadroSala salaId={salaId} />
-      {/* Mesa do professor + cadeira (professor olha para os alunos, +Z) */}
-      <Mesa pos={mesaProf} w={1.5} d={0.7} h={0.76} />
-      <Cadeira pos={[mesaProf[0], mesaProf[1], mesaProf[2] - 0.62]} rotY={Math.PI} />
-      {/* Armário alto no canto noroeste (longe das janelas e do quadro) */}
-      <Armario pos={[x0 + 0.68, 0, -31.62]} rotY={0} />
-      {/* Cartazes: 2 na parede sul (z=−23) e 1 na parede oeste */}
-      <Cartaz tipo={CARTAZES[0]} pos={[cx - 3.2, 1.7, -23.09]} rotY={Math.PI} />
-      <Cartaz tipo={CARTAZES[1]} pos={[cx + 3.2, 1.7, -23.09]} rotY={Math.PI} />
-      <Cartaz tipo={CARTAZES[2]} pos={[x0 + 0.11, 1.7, -27.5]} rotY={Math.PI / 2} />
+      {/* Mesa do professor (largura paralela ao quadro) + cadeira atrás dela,
+          olhando para os alunos */}
+      <Mesa pos={mesaProf} w={1.5} d={0.7} h={0.76} rotY={o.rotYMesa} />
+      <Cadeira
+        pos={[mesaProf[0] - n[0] * 0.62, mesaProf[1], mesaProf[2] - n[2] * 0.62]}
+        rotY={o.rotYCadeiraProf}
+      />
+      <Armario pos={armPos} rotY={o.rotYCarteira} />
+      {/* Cartazes: 2 na parede dos fundos e 1 na lateral esquerda */}
+      <Cartaz tipo={CARTAZES[0]} pos={cartazFundo(1)} rotY={o.rotYFundos} />
+      <Cartaz tipo={CARTAZES[1]} pos={cartazFundo(-1)} rotY={o.rotYFundos} />
+      <Cartaz tipo={CARTAZES[2]} pos={cartazLateral} rotY={o.rotYLateral} />
       {/* Ventilador de teto no centro da sala */}
-      <Ventilador pos={[cx, 2.95, -27.5]} />
+      <Ventilador pos={[o.cx, 2.95, o.cz]} />
     </group>
   );
 }
@@ -146,7 +234,7 @@ function MobiliarioSala({ salaId }: { salaId: string }) {
 // Componente público
 // ---------------------------------------------------------------------------
 
-/** Salas de aula 1–6 completas (mobiliário + carteiras instanciadas). */
+/** Salas de aula do térreo completas (mobiliário + carteiras instanciadas). */
 export function Classrooms() {
   return (
     <group name="salas-de-aula-terreo">

@@ -5,7 +5,7 @@
  */
 
 export { HUD } from './HUD';
-export { Minimap } from './Minimap';
+export { PinceisPanel } from './PinceisPanel';
 export { CharacterCard } from './CharacterCard';
 export { HelpOverlay } from './HelpOverlay';
 export { ControlsPanel } from './ControlsPanel';

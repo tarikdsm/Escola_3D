@@ -1,8 +1,8 @@
-/* ui.css — Estilo da interface da Escola 3D (HUD, minimapa, cartão, ajuda).
+/* ui.css — Estilo da interface da Escola 3D (HUD, painel de pincéis, cartão, ajuda).
    Visual limpo e amigável: cantos arredondados, sombra suave, cores da PALETTE. */
 
 .hud,
-.minimap,
+.pinceis-panel,
 .card-personagem,
 .ajuda-modal {
   font-family:
@@ -92,53 +92,102 @@
   white-space: nowrap;
 }
 
-/* -------------------------------------------------------------- Minimap --- */
+/* ---------------------------------------------------------- PinceisPanel --- */
 
-.minimap {
+.pinceis-panel {
   position: fixed;
   left: 12px;
   bottom: 12px;
   z-index: 20;
-  padding: 8px;
-  background: rgba(247, 242, 231, 0.94);
+  width: 232px;
+  padding: 10px 12px 12px;
+  background: rgba(247, 242, 231, 0.94); /* paredeInterna */
   border-radius: 12px;
   box-shadow: 0 2px 10px rgba(20, 24, 40, 0.18);
   user-select: none;
 }
 
-.minimap-canvas {
-  display: block;
-  border-radius: 8px;
+.pinceis-titulo {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: #1d3557; /* letreiroFundo */
+  letter-spacing: 0.02em;
 }
 
-.minimap-segmentos {
+.pinceis-chave {
   display: flex;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
-.minimap-segmentos .hud-botao {
+.pinceis-chave .hud-botao {
   flex: 1;
+  padding: 5px 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pinceis-linha {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #3b3b3b;
+}
+
+.pinceis-linha .rotulo {
+  font-weight: 700;
+  color: rgba(29, 53, 87, 0.6);
+}
+
+.pinceis-total {
+  font-weight: 700;
+  color: #1d3557;
+}
+
+.pinceis-cores {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
   font-size: 12px;
 }
 
-.minimap-legenda {
+.pinceis-cores li {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 6px;
-  margin-top: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  color: rgba(29, 53, 87, 0.7);
+  padding: 1.5px 0;
+  color: #3b3b3b;
 }
 
-.minimap-legenda .ponto {
+.pinceis-cor-nome {
+  flex: 1;
+  font-weight: 600;
+  color: #1d3557;
+}
+
+.pinceis-cor-valor {
+  font-variant-numeric: tabular-nums;
+}
+
+.pinceis-panel .ponto {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   margin-right: 3px;
   vertical-align: -1px;
+  flex: none;
+}
+
+/* Tons das bolinhas na identidade visual do projeto (guardaCorpo/teal/terracota). */
+.pincel-azul { background: #4a6fa5; }
+.pincel-verde { background: #2a9d8f; }
+.pincel-vermelho { background: #e76f51; }
+
+.pinceis-repor {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 10px;
 }
 
 /* ------------------------------------------------------- CharacterCard --- */

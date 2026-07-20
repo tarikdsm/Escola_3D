@@ -2,13 +2,14 @@
  * store.ts — CONTRATO do estado global (Zustand).
  *
  * Guarda apenas estado "grosso" (baixa frequência: cliques, trocas de período,
- * atualizações ~1 Hz). Dados por frame (posições/animação dos 79 personagens)
+ * atualizações ~1 Hz). Dados por frame (posições/animação dos 712 personagens)
  * NÃO passam por aqui — ficam em simBuffer.ts (SIM/playerState).
  *
  * A implementação fica em `src/state/useSchoolStore.ts`.
  */
 
-import type { Andar, Periodo } from './types';
+import type { Periodo } from './types';
+import type { Turno } from './routine';
 
 /** Multiplicador da escala de tempo (1×, 2× ou 4× sobre ESCALA_TEMPO). */
 export type Velocidade = 1 | 2 | 4;
@@ -26,6 +27,8 @@ export interface SchoolState {
   clockMin: number;
   /** Período vigente (derivado de clockMin via ROTINA). */
   periodo: Periodo;
+  /** Turno vigente ('manha' | 'tarde' | 'noite'), derivado de clockMin via turnoPara. */
+  turno: Turno;
   /** Multiplicador de velocidade da simulação. */
   velocidade: Velocidade;
   /** Som ambiente/efeitos ligado. */
@@ -37,8 +40,6 @@ export interface SchoolState {
    * Nunca é 'voar'; inicia em 'aereo'.
    */
   modoAnterior: 'andar' | 'aereo';
-  /** Andar exibido no minimapa. */
-  andarMinimap: Andar;
   /** Id do personagem selecionado (painel de detalhes), ou null. */
   selecionadoId: string | null;
   /**
@@ -48,6 +49,12 @@ export interface SchoolState {
   atividades: Record<string, string>;
   /** Portão da rua aberto/fechado (visual e regra de spawn dos alunos). */
   portaoAberto: boolean;
+  /**
+   * Modo dos pincéis de quadro: false = descartáveis ("Sem Allcanci"),
+   * true = recarga na máquina Fill ("Com Allcanci"). Espelhado no módulo
+   * `simulation/pinceis.ts` (setComAllcanci), que a simulação lê.
+   */
+  comAllcanci: boolean;
 
   // --- Actions ---
   setVelocidade: (v: Velocidade) => void;
@@ -62,12 +69,15 @@ export interface SchoolState {
    * atual em `modoAnterior` e entra em 'voar'.
    */
   toggleVoo: () => void;
-  setAndarMinimap: (a: Andar) => void;
+  /** Alterna Sem/Com Allcanci, espelhando a escolha em simulation/pinceis.ts. */
+  toggleAllcanci: () => void;
+  /** Repõe o estoque do almoxarifado (64 de cada cor) — delega a simulation/pinceis.ts. */
+  reporEstoque: () => void;
   selecionar: (id: string | null) => void;
   /**
    * Avança o relógio em `minutos` (minutos de JOGO), sem passar de
-   * HORA_FECHAMENTO. Atualiza `periodo` e emite os eventos 'sino'/'periodo'
-   * (events.ts) ao cruzar marcos da ROTINA.
+   * HORA_FECHAMENTO. Atualiza `periodo` e `turno` e emite os eventos
+   * 'sino'/'periodo' (events.ts) ao cruzar marcos da ROTINA.
    */
   tickClock: (minutos: number) => void;
   /** Aplica em lote as descrições de atividade (~1 Hz pela simulação). */

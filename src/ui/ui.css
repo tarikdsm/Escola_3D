@@ -1,11 +1,13 @@
-/* ui.css — Estilo da interface da Escola 3D (HUD, painel de pincéis, cartão, ajuda).
+/* ui.css — Estilo da interface da Escola 3D (HUD, painel de pincéis, slider de
+   viagem no tempo, ajuda, chips de painel recolhido e joystick de toque).
    Visual limpo e amigável: cantos arredondados, sombra suave, cores da PALETTE. */
 
 .hud,
 .pinceis-panel,
-.card-personagem,
 .ajuda-modal,
-.time-slider {
+.time-slider,
+.painel-chip,
+.toque-dica {
   font-family:
     system-ui,
     -apple-system,
@@ -191,83 +193,6 @@
   padding: 6px 10px;
 }
 
-/* ------------------------------------------------------- CharacterCard --- */
-
-.card-personagem {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  z-index: 20;
-  width: 250px;
-  padding: 14px 16px;
-  background: #ffffff;
-  border-radius: 14px;
-  box-shadow: 0 4px 18px rgba(20, 24, 40, 0.22);
-}
-
-.card-cabecalho {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.card-nome {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #1d3557;
-  line-height: 1.25;
-}
-
-.card-fechar {
-  border: none;
-  background: #f1ede2;
-  color: #1d3557;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  flex: none;
-  line-height: 1;
-}
-
-.card-fechar:hover { background: #e0d8c4; }
-
-.card-funcao {
-  margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #4a6fa5;
-}
-
-.card-linha {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #3b3b3b;
-}
-
-.card-linha .rotulo {
-  font-weight: 700;
-  color: rgba(29, 53, 87, 0.6);
-}
-
-.card-agora {
-  margin-top: 10px;
-  padding: 8px 10px;
-  background: #f7f2e7;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #3b3b3b;
-}
-
-.card-agora .rotulo {
-  font-weight: 700;
-  color: #2a9d8f;
-}
-
 /* ----------------------------------------------------------- HelpOverlay --- */
 
 .ajuda-fundo {
@@ -369,120 +294,53 @@
 
 .ajuda-fechar:hover { background: #e0d8c4; }
 
-/* -------------------------------------------------------- ControlsPanel --- */
+/* ------------------------------------------- Painéis recolhíveis (chips) --- */
 
-.comandos {
-  position: fixed;
-  top: 12px;
-  right: 12px;
-  z-index: 20;
-  width: 264px;
-  max-height: calc(100vh - 24px);
-  display: flex;
-  flex-direction: column;
-  background: rgba(247, 242, 231, 0.94); /* paredeInterna */
-  border-radius: 14px;
-  box-shadow: 0 4px 18px rgba(20, 24, 40, 0.22);
-  user-select: none;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
-}
-
-.comandos-cab {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 10px 8px 14px;
+/* Botão "−" que recolhe o painel (vive dentro dos painéis; usa .hud-botao). */
+.painel-min {
   flex: none;
-}
-
-.comandos-titulo {
-  font-size: 13px;
-  font-weight: 800;
-  color: #1d3557; /* letreiroFundo */
-  letter-spacing: 0.02em;
-}
-
-.comandos-toggle {
-  border: none;
-  background: #e4ddcc;
-  color: #1d3557;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
   border-radius: 50%;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
+  font-size: 14px;
   line-height: 1;
+}
+
+/* Chip de painel recolhido: clicável, reexpande o painel (togglePainel). */
+.painel-chip {
+  position: fixed;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(247, 242, 231, 0.94); /* paredeInterna */
+  box-shadow: 0 2px 10px rgba(20, 24, 40, 0.18);
+  color: #1d3557;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
   transition: background 0.15s ease;
 }
 
-.comandos-toggle:hover { background: #d5ccb6; }
+.painel-chip:hover { background: #ece5d3; }
 
-.comandos-corpo {
-  overflow-y: auto;
-  padding: 0 14px 12px;
-  scrollbar-width: thin;
-}
+.chip-hud { top: 12px; left: 12px; }
+.chip-pinceis { left: 12px; bottom: 12px; }
+.chip-tempo { left: 50%; bottom: 12px; transform: translateX(-50%); }
 
-.comandos-secao h3 {
-  margin: 10px 0 5px;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: #4a6fa5; /* guardaCorpo */
-}
-
-.comandos-secao:first-child h3 { margin-top: 2px; }
-
-.comandos-secao ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.comandos-secao li {
+/* Linha de cabeçalho do painel de pincéis (título + botão "−"). */
+.pinceis-cab {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2.5px 0;
-  font-size: 11.5px;
-  line-height: 1.35;
-}
-
-.comandos-teclas {
-  flex: none;
-  max-width: 52%;
-  font-weight: 600;
-  color: #1d3557;
-}
-
-.comandos-acao {
-  color: rgba(59, 59, 59, 0.85);
-  text-align: right;
-}
-
-.comandos kbd {
-  display: inline-block;
-  padding: 0 5px;
-  margin: 1px 1px 1px 0;
-  background: #ffffff;
-  border: 1px solid #d5ccb6;
-  border-bottom-width: 2px;
-  border-radius: 5px;
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 700;
-  color: #1d3557;
-  line-height: 1.5;
 }
 
 /* ------------------------------------------------------------ TimeSlider --- */
@@ -653,4 +511,137 @@
   font-weight: 800;
   color: #4a6fa5;
   white-space: nowrap;
+}
+
+/* -------------------------------------------------------- TouchControls --- */
+/* Só existem no DOM em dispositivos touch (pointer coarse) — ver
+   TouchControls.tsx. z-index 25: acima dos painéis (20), abaixo da ajuda (30). */
+
+/* Joystick virtual: canto inferior ESQUERDO, acima do chip/painel de pincéis
+   (que no mobile abre recolhido e, expandido, flutua acima do joystick). */
+.joy-base {
+  position: fixed;
+  left: 16px;
+  bottom: 84px;
+  z-index: 25;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(247, 242, 231, 0.28);
+  border: 2px solid rgba(247, 242, 231, 0.55);
+  box-shadow: 0 2px 10px rgba(20, 24, 40, 0.18);
+  /* O arraste do knob nunca rola a página nem vira gesto do browser. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(247, 242, 231, 0.92); /* paredeInterna */
+  border: 2px solid #4a6fa5; /* guardaCorpo */
+  box-shadow: 0 2px 8px rgba(20, 24, 40, 0.3);
+  pointer-events: none; /* quem recebe o gesto é a base */
+}
+
+/* Chip de dica de gestos (some no 1º gesto ou após 8 s). */
+.toque-dica {
+  position: fixed;
+  left: 50%;
+  bottom: 216px; /* acima do joystick */
+  transform: translateX(-50%);
+  z-index: 25;
+  max-width: calc(100vw - 48px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(29, 53, 87, 0.85); /* letreiroFundo */
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  white-space: normal;
+  pointer-events: none; /* nunca intercepta gestos */
+  user-select: none;
+}
+
+/* ---------------------------------------------- Telas estreitas (≤768px) --- */
+/* HUD/painéis compactos (no touch eles também ABREM recolhidos — padrão da
+   store). O painel de pincéis expandido flutua ACIMA do joystick (que ocupa
+   ~84–204 px a partir do rodapé) para não tampar o controle. */
+
+@media (max-width: 768px) {
+  .hud {
+    top: 8px;
+    left: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+    max-width: calc(100vw - 16px);
+  }
+
+  .hud-grupo {
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 10px;
+  }
+
+  .hud-relogio { font-size: 16px; }
+
+  .hud-badge {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  .hud-botao {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  .hud-modo { font-size: 10px; }
+
+  .pinceis-panel {
+    left: 8px;
+    bottom: 208px; /* acima do joystick (84 + 120 + folga) */
+    width: 196px;
+    max-height: calc(100vh - 288px);
+    overflow-y: auto;
+    padding: 8px 10px 10px;
+  }
+
+  .pinceis-linha,
+  .pinceis-cores {
+    font-size: 11px;
+  }
+
+  .chip-hud { top: 8px; left: 8px; }
+  .chip-pinceis { left: 8px; bottom: 8px; }
+  .chip-tempo { bottom: 8px; }
+
+  .time-slider {
+    bottom: 8px;
+    width: min(420px, calc(100vw - 24px));
+    gap: 6px;
+    padding: 6px 8px 5px;
+  }
+
+  .time-slider-botao {
+    padding: 5px 7px;
+    font-size: 10px;
+  }
+
+  .time-slider-rodape { font-size: 9px; }
+
+  .ajuda-modal {
+    width: calc(100vw - 32px);
+    max-height: calc(100vh - 32px);
+    padding: 16px 18px;
+  }
+
+  .ajuda-modal h1 { font-size: 16px; }
+
+  .ajuda-controles .teclas { min-width: 112px; }
 }

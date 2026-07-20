@@ -15,12 +15,18 @@ import type { Turno } from './routine';
 export type Velocidade = 1 | 2 | 4;
 
 /**
- * Modo da câmera: a pé na escola, vista aérea ou voo livre.
- * ('voar' incluído neste contrato: voo sem colisão nem chão, alternado pela
- * tecla F — ver PlayerRig.tsx/FlyControls.tsx. O retorno do voo usa
- * `modoAnterior`.)
+ * Modo de câmera/interação (modelo mouse-first, sem teclado de movimento):
+ * - 'voo': pointer lock no canvas; mouse = direção da câmera, LMB/RMB
+ *   segurados = frente/trás, scroll = zoom. Ao carregar a página o modo voo
+ *   já vem ARMADO (sem trava, por política do browser): o primeiro clique no
+ *   canvas trava o ponteiro — ver src/player/VooControls.tsx.
+ * - 'livre': mouse solto (ESC ou perda do pointer lock); a câmera fica fixa
+ *   e o cursor interage: clique em personagem = possuir, clique no vazio =
+ *   voltar a voar — ver src/characters/picking.ts.
+ * - 'possuido': 3ª pessoa controlando o NPC de índice `possuidoIdx` (pointer
+ *   lock de novo) — ver src/player/PossuidoControls.tsx e possessao.ts.
  */
-export type ModoCamera = 'andar' | 'aereo' | 'voar';
+export type ModoCam = 'voo' | 'livre' | 'possuido';
 
 export interface SchoolState {
   /** Relógio do jogo em minutos desde 00:00 (inicia em 7·60 = 7h00). */
@@ -33,13 +39,16 @@ export interface SchoolState {
   velocidade: Velocidade;
   /** Som ambiente/efeitos ligado. */
   somLigado: boolean;
-  /** Modo da câmera atual. */
-  modoCamera: ModoCamera;
+  /** Modo de câmera/interação atual (ver ModoCam acima). Inicia em 'voo' (armado). */
+  modoCam: ModoCam;
   /**
-   * Modo para o qual se volta ao sair do voo (tecla F ou Tab durante o voo).
-   * Nunca é 'voar'; inicia em 'aereo'.
+   * Índice estável (ROSTER/SIM) do NPC possuído, ou null. Permanece
+   * preenchido no modo 'livre' após um ESC estando possuído (o NPC para mas
+   * CONTINUA possuído até ser solto — chip do HUD ou clique no vazio).
+   * A simulação pula este índice (ver step.ts) — SIM.pos/facing/anim dele
+   * são dirigidos pelo controlador em src/player/.
    */
-  modoAnterior: 'andar' | 'aereo';
+  possuidoIdx: number | null;
   /** Id do personagem selecionado (painel de detalhes), ou null. */
   selecionadoId: string | null;
   /**
@@ -63,20 +72,40 @@ export interface SchoolState {
   viajando: boolean;
   /** Minuto-alvo da viagem em curso (7·60–23·60), ou null fora de viagem. */
   minutoAlvoViagem: number | null;
+  /**
+   * Painéis da UI recolhidos em chip (id → true). Ids vigentes: 'hud',
+   * 'pinceis' e 'tempo' (TimeSlider). No arranque todos vêm RECOLHIDOS em
+   * dispositivos touch (pointer coarse) e expandidos no desktop — ver a
+   * inicialização em state/useSchoolStore.ts.
+   */
+  paineisOcultos: Record<string, boolean>;
 
   // --- Actions ---
   setVelocidade: (v: Velocidade) => void;
   toggleSom: () => void;
   /**
-   * Tab: se estiver voando, sai do voo para `modoAnterior`; senão alterna
-   * 'andar' ↔ 'aereo'.
+   * Vai para o modo voo (clique no vazio com o mouse livre). NÃO mexe na
+   * posse — quem chama decide (src/player/possessao.ts libera o NPC antes).
+   * A trava do ponteiro é pedida no próprio gesto do usuário (click).
    */
-  toggleModoCamera: () => void;
+  entrarVoo: () => void;
   /**
-   * Tecla F: se estiver voando, volta a `modoAnterior`; senão grava o modo
-   * atual em `modoAnterior` e entra em 'voar'.
+   * Vai para o modo livre (ESC / perda do pointer lock): câmera fixa, cursor
+   * interage. Preserva `possuidoIdx` (ESC estando possuído só pausa o
+   * controle — o NPC continua possuído).
    */
-  toggleVoo: () => void;
+  entrarLivre: () => void;
+  /**
+   * Possui o NPC de índice `idx` (clique em personagem no modo livre):
+   * modo 'possuido' + `possuidoIdx`. Os efeitos na simulação (liberar
+   * lugar/fila/conversa, atividade) ficam em src/player/possessao.ts.
+   */
+  possuir: (idx: number) => void;
+  /**
+   * Limpa a posse e fica no modo livre (botão "Soltar" do HUD). Para voar em
+   * seguida, chame `entrarVoo` (é o que o clique no vazio faz).
+   */
+  soltarPossuido: () => void;
   /** Alterna Sem/Com Allcanci, espelhando a escolha em simulation/pinceis.ts. */
   toggleAllcanci: () => void;
   /** Repõe o estoque do almoxarifado (64 de cada cor) — delega a simulation/pinceis.ts. */
@@ -103,4 +132,6 @@ export interface SchoolState {
    * normal no próximo frame.
    */
   cancelarViagem: () => void;
+  /** Recolhe/expande um painel da UI ('hud' | 'pinceis' | 'tempo'). */
+  togglePainel: (id: string) => void;
 }

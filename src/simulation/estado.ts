@@ -170,6 +170,15 @@ export interface Mundo {
   bola: Bola;
 }
 
+/**
+ * EDIÇÃO MÍNIMA (rodada de posse — agente C1): referência ao mundo ativo,
+ * registrada em `criarMundo`. A simulação em si NÃO a usa; ela existe para
+ * `src/player/possessao.ts` tirar/devolver o NPC possuído (liberar recursos,
+ * sincronizar posição ao soltar). Leitura/escrita só nas TRANSIÇÕES de
+ * posse — nunca no loop por frame.
+ */
+export let mundoAtivo: Mundo | null = null;
+
 /** Cria um agente com valores iniciais neutros. */
 function criarAgente(indice: number): Agente {
   return {
@@ -414,6 +423,7 @@ export function criarMundo(): Mundo {
     setSpeed(a.indice, 0);
     setTalkTarget(a.indice, -1);
   }
+  mundoAtivo = m; // registro p/ a posse (src/player/possessao.ts — ver acima)
   return m;
 }
 

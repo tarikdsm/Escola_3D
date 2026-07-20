@@ -243,3 +243,27 @@ Desvios e decisões relevantes em relação a esta spec:
   lance 1 da escada B (rampa a 2,6 m, sem vão) — o filtro da grade do pátio
   agora pula qualquer ponto na projeção de lances com base no solo
   (`dentroDeLanceMacico`). Grafo revalidado: **498 nós, 100% alcançável**.
+
+## Pós-expansão 2: controles mouse-first, telhados, redes e mobile
+
+- **Controles reescritos** (sem teclado de movimento): modos `voo` (padrão;
+  pointer lock no clique do canvas; mouse = direção; LMB frente; RMB ré;
+  scroll zoom) / `livre` (ESC; câmera fixa; cursor interage) / `possuido`
+  (clique em personagem: 3ª pessoa com colisão e escadas via `alturaNaRampa`
+  com yRef; LMB anda; scroll = distância; clique no vazio solta e voa).
+  Arquivos: `src/player/{PlayerRig,VooControls,PossuidoControls,entrada,
+  possessao,pointerLock,collision}.ts(x)`; FlyControls/WalkControls antigos,
+  ControlsPanel e CharacterCard **removidos**; simulação pula o índice
+  possuído (edição mínima em `estado.ts`/`step.ts`). `selecionadoId`/
+  `selecionar`/`atividades` ficaram sem consumidor de UI (mantidos na store).
+- **Telhados corrigidos**: os sinais de rotação das águas estavam trocados
+  (telhado em "V" invertido) — agora cumeeira central alta (A/C: +2,0 m; B:
+  +1,7 m) e águas descendo ao beiral de 0,4 m.
+- **Redes de basquete** reconstruídas: cone truncado sob o aro (3 anéis
+  decrescentes + 20 cordões em zigue-zague, branco semitransparente) e
+  bracket ligando o aro (3,05 m) à tabela.
+- **Mobile/touch**: `TouchControls.tsx` (joystick virtual → `entradaMover`;
+  arrastar metade direita → `girarVisao`; pinça → `zoomCam`; tap →
+  `toqueTela`), viewport travado, `touch-action: none` no canvas, `dpr` ≤
+  1,75, painéis compactos ≤768 px e colapsáveis individualmente
+  (`paineisOcultos` na store; touch começa com tudo recolhido).

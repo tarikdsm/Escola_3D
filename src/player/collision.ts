@@ -17,9 +17,11 @@ const SOBRA_BASE = 0.25;
  *  embaixo da projeção do topo da escada, ex.: corredor junto à varanda). */
 const TOLERANCIA_RAMPA = 1.0;
 
-/** Plantas dos blocos (contorno externo): laje do piso superior em y=3. */
+/** Plantas dos blocos (contorno externo, cômodos + corredor/varanda — ver
+ *  cabeçalho de layout.ts): usadas para a regra da laje (chão em y=3/6/9). */
 const BLOCO_A = { minX: -33, maxX: 33, minZ: -32, maxZ: -20 };
-const BLOCO_B = { minX: -29, maxX: 29, minZ: 10, maxZ: 20 };
+const BLOCO_B = { minX: -33, maxX: 29, minZ: 10, maxZ: 20 };
+const BLOCO_C = { minX: -45, maxX: -33, minZ: -32, maxZ: 20 };
 
 const scratchMover: Vec3 = [0, 0, 0];
 const scratchChao: { y: number; andar: Andar } = { y: 0, andar: 0 };
@@ -82,8 +84,11 @@ export function moverComColisao(
 
 /**
  * Altura do chão em (x, z) para quem está na altura `yAtual` (pés):
- * 1. rampa de alguma escada (altura contínua), se |h − yAtual| ≤ 1,0;
- * 2. laje do piso superior (y=3) dentro da planta dos blocos, se yAtual ≥ 2;
+ * 1. rampa/patamar de alguma escada (altura contínua) — `alturaNaRampa` com
+ *    yRef = yAtual desambigua os lances sobrepostos da meia-volta — se
+ *    |h − yAtual| ≤ 1,0;
+ * 2. laje de pavimento superior (y=3, 6 ou 9, a mais próxima de yAtual)
+ *    dentro da planta dos blocos A/B/C, se yAtual ≥ 2;
  * 3. senão, o térreo (y=0).
  */
 export function chaoEm(
@@ -92,22 +97,26 @@ export function chaoEm(
   yAtual: number,
   out: { y: number; andar: Andar } = scratchChao,
 ): { y: number; andar: Andar } {
-  // 1) Rampa das escadas (projeção no chão, com margem de 0,3 m).
+  // 1) Rampas e patamares das escadas (projeção no chão, com margem de 0,3 m
+  //    no contrato — cobre também as passarelas flutuantes em y=6).
   for (const s of STAIRS) {
-    const h = alturaNaRampa(s, x, z);
+    const h = alturaNaRampa(s, x, z, yAtual);
     if (h !== null && Math.abs(h - yAtual) <= TOLERANCIA_RAMPA) {
       out.y = h;
-      out.andar = h >= CONST.ALTURA_PISO / 2 ? 1 : 0;
+      out.andar = andarDeAltura(h);
       return out;
     }
   }
 
-  // 2) Laje superior dentro da planta dos blocos (só se já estiver em cima).
+  // 2) Laje superior dentro da planta de algum bloco (só se já estiver em
+  //    cima): nível = o múltiplo de ALTURA_PISO mais próximo (3, 6 ou 9).
   const dentroA = x >= BLOCO_A.minX && x <= BLOCO_A.maxX && z >= BLOCO_A.minZ && z <= BLOCO_A.maxZ;
   const dentroB = x >= BLOCO_B.minX && x <= BLOCO_B.maxX && z >= BLOCO_B.minZ && z <= BLOCO_B.maxZ;
-  if ((dentroA || dentroB) && yAtual >= 2) {
-    out.y = CONST.ALTURA_PISO;
-    out.andar = 1;
+  const dentroC = x >= BLOCO_C.minX && x <= BLOCO_C.maxX && z >= BLOCO_C.minZ && z <= BLOCO_C.maxZ;
+  if ((dentroA || dentroB || dentroC) && yAtual >= CONST.ALTURA_PISO - 1) {
+    const nivel = Math.max(1, Math.min(3, Math.round(yAtual / CONST.ALTURA_PISO)));
+    out.y = nivel * CONST.ALTURA_PISO;
+    out.andar = nivel as Andar;
     return out;
   }
 
@@ -115,4 +124,9 @@ export function chaoEm(
   out.y = 0;
   out.andar = 0;
   return out;
+}
+
+/** Andar lógico de uma cota y (0 = térreo … 3 = 3º andar). */
+function andarDeAltura(y: number): Andar {
+  return Math.max(0, Math.min(3, Math.round(y / CONST.ALTURA_PISO))) as Andar;
 }

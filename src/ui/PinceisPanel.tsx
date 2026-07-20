@@ -6,6 +6,10 @@
  * Allcanci, total de ativos, por cor (total + carga média %), estoque do
  * almoxarifado por cor, descartados e o botão "Repor estoque".
  *
+ * Recolhível: o botão "−" colapsa o painel num chip "🖌 Pincéis" (estado em
+ * `paineisOcultos.pinceis` da store — no touch os painéis abrem recolhidos;
+ * no mobile o painel expandido flutua ACIMA do joystick — ver ui.css).
+ *
  * O resumo é lido por POLLING a cada 500 ms chamando obterResumoPinceis()
  * direto do módulo — SEM subscribe ao clockMin da store (muda a cada frame).
  */
@@ -27,6 +31,8 @@ export function PinceisPanel() {
   const comAllcanci = useSchoolStore((s) => s.comAllcanci);
   const toggleAllcanci = useSchoolStore((s) => s.toggleAllcanci);
   const reporEstoque = useSchoolStore((s) => s.reporEstoque);
+  const oculto = useSchoolStore((s) => !!s.paineisOcultos.pinceis);
+  const togglePainel = useSchoolStore((s) => s.togglePainel);
 
   // Resumo lido por intervalo próprio (500 ms) direto do módulo de simulação.
   const [resumo, setResumo] = useState<ResumoPinceis>(() => obterResumoPinceis());
@@ -35,9 +41,35 @@ export function PinceisPanel() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Recolhido: vira um chip no canto inferior esquerdo (toque p/ reexpandir).
+  if (oculto) {
+    return (
+      <button
+        type="button"
+        className="painel-chip chip-pinceis"
+        onClick={() => togglePainel('pinceis')}
+        title="Mostrar o painel de pincéis"
+        aria-label="Mostrar o painel de pincéis"
+      >
+        🖌 Pincéis
+      </button>
+    );
+  }
+
   return (
     <div className="pinceis-panel">
-      <h3 className="pinceis-titulo">Pincéis de quadro</h3>
+      <div className="pinceis-cab">
+        <h3 className="pinceis-titulo">Pincéis de quadro</h3>
+        <button
+          type="button"
+          className="hud-botao painel-min"
+          onClick={() => togglePainel('pinceis')}
+          title="Recolher o painel"
+          aria-label="Recolher o painel"
+        >
+          −
+        </button>
+      </div>
 
       <div className="pinceis-chave" role="group" aria-label="Modo de reposição dos pincéis">
         <button

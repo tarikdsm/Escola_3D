@@ -2,7 +2,10 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <title>Explorador de Escola Virtual 3D</title>
     <style>
       html,
@@ -14,9 +17,13 @@
         height: 100%;
         overflow: hidden;
         background: #87ceeb;
+        /* Sem pull-to-refresh/encadeamento de rolagem no mobile. */
+        overscroll-behavior: none;
       }
       canvas {
         display: block;
+        /* Gestos de toque no canvas não rolam/zoomam a página. */
+        touch-action: none;
       }
     </style>
   </head>

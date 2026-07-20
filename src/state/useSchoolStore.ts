@@ -18,34 +18,43 @@ import {
 } from '../simulation/viagemTempo';
 import type { SchoolState } from '../contracts/store';
 
+/**
+ * Estado inicial dos painéis recolhíveis: em dispositivos touch (pointer
+ * coarse) TODOS abrem recolhidos em chip; no desktop, expandidos.
+ */
+function paineisIniciais(): Record<string, boolean> {
+  const toque =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches;
+  return { hud: toque, pinceis: toque, tempo: toque };
+}
+
 export const useSchoolStore = create<SchoolState>()((set, get) => ({
   clockMin: CONST.HORA_ABERTURA, // 7h00
   periodo: periodoPara(CONST.HORA_ABERTURA), // 'CHEGADA'
   turno: turnoPara(CONST.HORA_ABERTURA), // 'manha'
   velocidade: 1,
   somLigado: true,
-  modoCamera: 'aereo', // integração: abre na vista aérea (escola inteira); Tab desce p/ caminhar
-  modoAnterior: 'aereo', // modo de retorno ao sair do voo (tecla F)
+  modoCam: 'voo', // abre no modo voo ARMADO: o 1º clique no canvas trava o ponteiro
+  possuidoIdx: null,
   selecionadoId: null,
   atividades: {},
   portaoAberto: true,
   comAllcanci: false, // "Sem Allcanci": pincéis descartáveis (estoque do almoxarifado)
   viajando: false, // viagem no tempo (slider do rodapé) em curso
   minutoAlvoViagem: null,
+  paineisOcultos: paineisIniciais(), // touch: tudo recolhido; desktop: expandido
 
   setVelocidade: (v) => set({ velocidade: v }),
   toggleSom: () => set((s) => ({ somLigado: !s.somLigado })),
-  toggleModoCamera: () =>
-    set((s) => ({
-      // No voo, Tab sai para o modo anterior; senão alterna andar ↔ aéreo.
-      modoCamera: s.modoCamera === 'voar' ? s.modoAnterior : s.modoCamera === 'andar' ? 'aereo' : 'andar',
-    })),
-  toggleVoo: () =>
-    set((s) =>
-      s.modoCamera === 'voar'
-        ? { modoCamera: s.modoAnterior } // sai do voo para o modo anterior
-        : { modoCamera: 'voar' as const, modoAnterior: s.modoCamera }, // entra no voo lembrando de onde veio
-    ),
+  // Modos de câmera/interação (modelo mouse-first — ver contracts/store.ts).
+  // A posse em si (e a devolução do NPC à simulação) é orquestrada por
+  // src/player/possessao.ts, que chama estas ações.
+  entrarVoo: () => set({ modoCam: 'voo' }),
+  entrarLivre: () => set({ modoCam: 'livre' }),
+  possuir: (idx) => set({ modoCam: 'possuido', possuidoIdx: idx }),
+  soltarPossuido: () => set({ modoCam: 'livre', possuidoIdx: null }),
   toggleAllcanci: () => {
     const novo = !get().comAllcanci;
     setComAllcanci(novo); // espelha no módulo da simulação (lido pelos behaviors)
@@ -87,4 +96,6 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
 
   setAtividades: (batch) => set((s) => ({ atividades: { ...s.atividades, ...batch } })),
   setPortaoAberto: (aberto) => set({ portaoAberto: aberto }),
+  togglePainel: (id) =>
+    set((s) => ({ paineisOcultos: { ...s.paineisOcultos, [id]: !s.paineisOcultos[id] } })),
 }));

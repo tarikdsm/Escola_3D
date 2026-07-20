@@ -1,10 +1,12 @@
 /**
  * Roof.tsx — Telhado dos blocos A, B e C sobre CONST.ALTURA_TELHADO (y=12).
  *
- * Estilo low-poly: duas águas por bloco (caixas inclinadas com cumeeira
- * cilíndrica e beirais avançando ~0,6 m além das paredes), empenas
- * triangulares fechando as laterais e teto interno plano em y≈11,8
- * (face inferior vista de dentro do 3º andar).
+ * Estilo low-poly: duas águas por bloco (caixas inclinadas) com a CUMEEIRA
+ * NO CENTRO da planta — linha mais alta no meio do bloco (~1,7–2,0 m acima
+ * da base y=12) — e as águas DESCENDO até as fachadas, com beirais
+ * avançando ~0,4 m além das paredes. Empenas triangulares (ápice no centro)
+ * fecham as extremidades da cumeeira e um teto interno plano em y≈11,8
+ * serve de face inferior vista de dentro do 3º andar.
  *
  * Cada telhado é construído em coordenadas LOCAIS (cumeeira ao longo do
  * eixo X local, centro na origem) e posicionado/girado pelo grupo externo —
@@ -18,8 +20,8 @@ import { PALETTE } from '../../contracts/palette';
 
 /** Base das águas (topo das paredes do 4º pavimento). */
 const Y_BASE = CONST.ALTURA_TELHADO;
-/** Avanço dos beirais além das paredes (~0,6 m). */
-const BEIRAL = 0.6;
+/** Avanço dos beirais além das paredes (~0,4 m). */
+const BEIRAL = 0.4;
 
 /** Triângulo da empena no plano local XY (base centrada em y=0, ápice no topo). */
 function geometriaEmpena(base: number, altura: number): THREE.BufferGeometry {
@@ -80,12 +82,14 @@ function TelhadoDuasAguas({
 
   return (
     <group position={[cx, 0, cz]} rotation-y={rotY}>
-      {/* Duas águas (caixas finas inclinadas) */}
-      <mesh position={[0, yMeio, -corrida / 2]} rotation={[ang, 0, 0]} castShadow receiveShadow>
+      {/* Duas águas (caixas finas inclinadas): a aresta INTERNA (junto à
+          cumeeira, z local 0) é a MAIS ALTA e a aresta externa desce até o
+          beiral da fachada — sinais de rotação opostos entre as águas. */}
+      <mesh position={[0, yMeio, -corrida / 2]} rotation={[-ang, 0, 0]} castShadow receiveShadow>
         <boxGeometry args={[largura, 0.12, compAgua]} />
         <meshStandardMaterial color={cor} roughness={0.85} flatShading />
       </mesh>
-      <mesh position={[0, yMeio, corrida / 2]} rotation={[-ang, 0, 0]} castShadow receiveShadow>
+      <mesh position={[0, yMeio, corrida / 2]} rotation={[ang, 0, 0]} castShadow receiveShadow>
         <boxGeometry args={[largura, 0.12, compAgua]} />
         <meshStandardMaterial color={cor} roughness={0.85} flatShading />
       </mesh>
@@ -113,44 +117,45 @@ function TelhadoDuasAguas({
 export function Roof() {
   return (
     <group name="telhado">
-      {/* Bloco A: x −33…+33, z −32…−20 (cumeeira em z=−26) */}
+      {/* Bloco A: x −33…+33, z −32…−20 (cumeeira ALTA em z=−26, y=14) */}
       <TelhadoDuasAguas
         cx={0}
         cz={-26}
         rotY={0}
         largura={66 + 2 * BEIRAL}
         corrida={6 + BEIRAL}
-        altura={1.5}
+        altura={2.0}
         baseEmpena={12}
         xEmpenas={[-33, 33]}
         cor={PALETTE.telhadoA}
         corEmpena={PALETTE.paredeBlocoA}
         teto={{ w: 66, d: 12 }}
       />
-      {/* Bloco B: x −33…+29, z +10…+20 (cumeeira em z=+15) */}
+      {/* Bloco B: x −33…+29, z +10…+20 (cumeeira ALTA em z=+15, y=13,7) */}
       <TelhadoDuasAguas
         cx={-2}
         cz={15}
         rotY={0}
         largura={62 + 2 * BEIRAL}
         corrida={5 + BEIRAL}
-        altura={1.3}
+        altura={1.7}
         baseEmpena={10}
         xEmpenas={[-31, 31]}
         cor={PALETTE.telhadoB}
         corEmpena={PALETTE.paredeBlocoB}
         teto={{ w: 62, d: 10 }}
       />
-      {/* Bloco C: x −45…−33, z −32…+20 (cumeeira em x=−39, ao longo de Z —
-          girado 90°; reutiliza telhadoA/guarita da paleta, que não tem cor
-          própria para o Bloco C — mesma convenção das paredes superiores) */}
+      {/* Bloco C: x −45…−33, z −32…+20 (cumeeira ALTA em x=−39, y=14, ao
+          longo de Z — girado 90°; reutiliza telhadoA/guarita da paleta, que
+          não tem cor própria para o Bloco C — mesma convenção das paredes
+          superiores) */}
       <TelhadoDuasAguas
         cx={-39}
         cz={-6}
         rotY={Math.PI / 2}
         largura={52 + 2 * BEIRAL}
         corrida={6 + BEIRAL}
-        altura={1.2}
+        altura={2.0}
         baseEmpena={12}
         xEmpenas={[-26, 26]}
         cor={PALETTE.telhadoA}

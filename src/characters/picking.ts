@@ -1,23 +1,27 @@
 /**
- * picking.ts — SELEÇÃO DE PERSONAGENS por clique/toque.
+ * picking.ts — INTERAÇÃO por clique/toque (modelo mouse-first — ver
+ * contracts/store.ts):
  *
- * `Characters.tsx` registra suas InstancedMeshes em `characterMeshes`;
- * `CharacterPicker` (montado DENTRO do <Canvas>) escuta os eventos do
- * canvas e faz raycast contra essas malhas:
+ * - Só age no modo 'livre' (mouse solto). Nos modos com pointer lock
+ *   ('voo'/'possuido') o clique é MOVIMENTO (LMB = frente) e não há cursor.
+ * - Clique em PERSONAGEM → POSSE (3ª pessoa): iniciarPosse(idx) + pedido de
+ *   pointer lock — o NPC sai da simulação (ver src/player/possessao.ts e o
+ *   skip em simulation/step.ts). Estando já possuído de outro, troca de alvo.
+ * - Clique no VAZIO → volta ao modo VOO (pointer lock); se estiver possuído,
+ *   o NPC é liberado e retoma a simulação da posição atual (replaneja).
+ * - Filtro de arrasto: pointerdown → click com > 6 px de deslocamento não
+ *   conta como clique (protege contra gestos sujos, mesmo com a câmera fixa).
  *
- * - modo 'aereo' (sem pointer lock): evento 'click' com as coords do ponteiro;
- * - modo 'andar' (pointer lock ativo): raio saindo do CENTRO da tela (a mira).
+ * `interagirNoPonto(x, y)` é a entrada imperativa ÚNICA (clique do mouse e
+ * toqueTela da API touch passam por ela); usa a câmera/canvas atuais
+ * registrados pelo <CharacterPicker/> no mount (dentro do <Canvas>).
  *
- * Como segurar LMB/RMB agora MOVE a câmera/personagem em todos os modos, a
- * seleção só acontece no 'click' (soltar o botão) e é IGNORADA quando:
- * - a pressão durou > 400 ms (segurou para se mover); OU
- * - a câmera se moveu > 0,05 m entre pointerdown e click; OU
- * - o ponteiro se moveu > 6 px (arrasto de câmera — regra antiga, mantida).
+ * `Characters.tsx` registra suas InstancedMeshes em `characterMeshes` via
+ * `registrarMalhaPersonagem` (só as partes presentes em TODOS os 712 —
+ * cabelo/saia/mochila etc. têm instâncias de escala 0, que atrapalhariam o
+ * raycast). instanceId do raio == índice estável no ROSTER/SIM.
  *
- * instanceId do raio == índice estável no ROSTER → `selecionar(ROSTER[idx].id)`.
- * Clique fora de qualquer personagem → `selecionar(null)`.
- *
- * O store é acessado via `useSchoolStore.getState()` no momento do clique —
+ * O store é acessado via `useSchoolStore.getState()` no momento do gesto —
  * nenhum subscribe por frame.
  */
 
@@ -25,6 +29,8 @@ import { useEffect } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { ROSTER } from '../contracts';
+import { iniciarPosse, soltarPosseEVoar } from '../player/possessao';
+import { pedirTravaPointer } from '../player/pointerLock';
 import { useSchoolStore } from '../state/useSchoolStore';
 
 /**
@@ -41,8 +47,60 @@ export function registrarMalhaPersonagem(m: THREE.InstancedMesh): void {
   if (!characterMeshes.includes(m)) characterMeshes.push(m);
 }
 
+// --- Alvos do raycast imperativo (registrados pelo CharacterPicker) ---
+let refCanvas: HTMLCanvasElement | null = null;
+let refCamera: THREE.Camera | null = null;
+// Scratches do raycast (reuso — sem alocação por clique).
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+
+/** Índice ROSTER/SIM do personagem sob o ponto (coords de cliente), ou null. */
+function personagemNoPonto(el: HTMLCanvasElement, cam: THREE.Camera, x: number, y: number): number | null {
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return null;
+  ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  if (characterMeshes.length === 0) return null;
+  raycaster.setFromCamera(ndc, cam);
+  const hits = raycaster.intersectObjects(characterMeshes, false);
+  // Os hits vêm ordenados por distância; o primeiro com instanceId vale.
+  for (const h of hits) {
+    const idx = h.instanceId;
+    if (idx !== undefined && idx >= 0 && idx < ROSTER.length) return idx;
+  }
+  return null;
+}
+
 /**
- * Componente "invisível": só instala os listeners de clique no canvas.
+ * AÇÃO do clique/toque em coords de cliente (CSS px) — única porta de
+ * interação (listener de click do canvas E toqueTela da API touch).
+ * No-Op fora do modo 'livre' (nos modos com pointer lock não há cursor).
+ */
+export function interagirNoPonto(clientX: number, clientY: number): void {
+  const st = useSchoolStore.getState();
+  if (st.modoCam !== 'livre') return;
+  const el = refCanvas;
+  const cam = refCamera;
+  if (!el || !cam) return; // picker ainda não montou (defensivo)
+
+  const idx = personagemNoPonto(el, cam, clientX, clientY);
+  if (idx !== null) {
+    // Personagem: possui (a posse troca de alvo sozinha, se já houver um).
+    iniciarPosse(idx);
+  } else if (st.possuidoIdx !== null) {
+    // Vazio estando possuído: libera o NPC (retoma a simulação dali) e voa.
+    soltarPosseEVoar();
+  } else {
+    // Vazio sem posse: simplesmente volta a voar.
+    st.entrarVoo();
+  }
+  // A trava é pedida no MESMO gesto do usuário (exigência dos browsers);
+  // se falhar (cooldown pós-ESC), o PlayerRig/chip orientam o próximo clique.
+  pedirTravaPointer(el);
+}
+
+/**
+ * Componente "invisível": instala os listeners de clique no canvas e
+ * registra câmera/canvas para o `interagirNoPonto` imperativo.
  * Deve ser montado dentro do <Canvas> (usa useThree).
  */
 export function CharacterPicker(): null {
@@ -51,60 +109,22 @@ export function CharacterPicker(): null {
 
   useEffect(() => {
     const el = gl.domElement;
-    const raycaster = new THREE.Raycaster();
-    const ndc = new THREE.Vector2();
-    // Dados do pointerdown, para distinguir clique de "segurar para mover":
-    // posição e instante do toque + posição da câmera naquele momento.
+    refCanvas = el;
+    refCamera = camera;
+
+    // Dados do pointerdown, para o filtro de arrasto (> 6 px não é clique).
     let downX = 0;
     let downY = 0;
-    let downT = 0;
-    const downCamPos = new THREE.Vector3();
-
-    const selecionarNoPonto = (clientX: number, clientY: number, centro: boolean): void => {
-      if (centro) {
-        ndc.set(0, 0);
-      } else {
-        const r = el.getBoundingClientRect();
-        if (r.width === 0 || r.height === 0) return;
-        ndc.set(
-          ((clientX - r.left) / r.width) * 2 - 1,
-          -((clientY - r.top) / r.height) * 2 + 1,
-        );
-      }
-      if (characterMeshes.length === 0) return;
-      raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObjects(characterMeshes, false);
-      // Os hits vêm ordenados por distância; o primeiro com instanceId vale.
-      let id: string | null = null;
-      for (const h of hits) {
-        const idx = h.instanceId;
-        if (idx !== undefined && idx >= 0 && idx < ROSTER.length) {
-          id = ROSTER[idx].id;
-          break;
-        }
-      }
-      useSchoolStore.getState().selecionar(id);
-    };
 
     const onPointerDown = (e: PointerEvent): void => {
-      // Só registra; a seleção acontece no 'click' (soltar), após os filtros.
       downX = e.clientX;
       downY = e.clientY;
-      downT = performance.now();
-      downCamPos.copy(camera.position);
     };
 
     const onClick = (e: MouseEvent): void => {
-      // Com pointer lock ('andar'/'voar'), a mira é o centro da tela.
-      const centro = document.pointerLockElement === el;
-      // Segurou o botão para se mover (> 400 ms): não é intenção de selecionar.
-      if (performance.now() - downT > 400) return;
-      // A câmera se moveu durante a pressão (voar/andar/avanço aéreo): idem.
-      if (downCamPos.distanceToSquared(camera.position) > 0.05 * 0.05) return;
-      // Arrasto do ponteiro (órbita no aéreo) também não é clique. Com pointer
-      // lock o clientX/Y não é significativo, então o teste só vale fora dele.
-      if (!centro && Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) return;
-      selecionarNoPonto(e.clientX, e.clientY, centro);
+      // Arrasto do ponteiro entre down e click: não é intenção de interagir.
+      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) return;
+      interagirNoPonto(e.clientX, e.clientY);
     };
 
     el.addEventListener('pointerdown', onPointerDown);
@@ -112,6 +132,8 @@ export function CharacterPicker(): null {
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('click', onClick);
+      if (refCanvas === el) refCanvas = null;
+      if (refCamera === camera) refCamera = null;
     };
   }, [gl, camera]);
 

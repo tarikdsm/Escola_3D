@@ -157,6 +157,86 @@ function Trave({ pos, dir }: { pos: Vec3; dir: Vec3 }) {
 }
 
 // ---------------------------------------------------------------------------
+// Rede da cesta — cone truncado pendurado SOB o aro: 3 anéis horizontais
+// decrescentes (a boca de cima é presa ao aro) ligados por 10 cordões em
+// malha diagonal (2 segmentos por cordão), branco semitransparente, ≈ 0,40 m.
+// ---------------------------------------------------------------------------
+
+/** Centro do aro no espaço local da tabela (altura oficial 3,05 m). */
+const ARO = { x: 0.82, y: 3.05, raio: 0.23 } as const;
+
+/** Anéis da rede (raio e altura relativos ao centro do aro). */
+const REDE_ANEIS = [
+  { r: 0.225, y: -0.02 }, // boca de cima, presa ao aro
+  { r: 0.16, y: -0.215 },
+  { r: 0.115, y: -0.41 }, // fundo da rede (≈ 0,40 m abaixo do aro)
+] as const;
+
+const REDE_N = 10; // cordões por trecho entre anéis
+
+interface Cordao {
+  pos: Vec3;
+  quat: THREE.Quaternion;
+  comp: number;
+}
+
+/** Cordões em malha diagonal: cada um desce de um anel ao seguinte com meio
+ *  passo de giro, alternando o sentido a cada trecho (zigue-zague). */
+const REDE_CORDOES: Cordao[] = (() => {
+  const meioPasso = Math.PI / REDE_N;
+  const up = new THREE.Vector3(0, 1, 0);
+  const out: Cordao[] = [];
+  for (let i = 0; i < REDE_N; i++) {
+    const t = (i / REDE_N) * Math.PI * 2;
+    for (let k = 0; k < REDE_ANEIS.length - 1; k++) {
+      const a0 = t + (k === 0 ? 0 : meioPasso);
+      const a1 = t + (k === 0 ? meioPasso : 0);
+      const p0 = new THREE.Vector3(
+        Math.cos(a0) * REDE_ANEIS[k].r,
+        REDE_ANEIS[k].y,
+        Math.sin(a0) * REDE_ANEIS[k].r,
+      );
+      const p1 = new THREE.Vector3(
+        Math.cos(a1) * REDE_ANEIS[k + 1].r,
+        REDE_ANEIS[k + 1].y,
+        Math.sin(a1) * REDE_ANEIS[k + 1].r,
+      );
+      const dir = p1.clone().sub(p0);
+      const comp = dir.length();
+      out.push({
+        pos: [(p0.x + p1.x) / 2, (p0.y + p1.y) / 2, (p0.z + p1.z) / 2],
+        quat: new THREE.Quaternion().setFromUnitVectors(up, dir.normalize()),
+        comp,
+      });
+    }
+  }
+  return out;
+})();
+
+/** Rede instanciada: 1 Instances de anéis (torus unitário escalado ao raio)
+ *  + 1 Instances de cordões (cilindro unitário orientado ao segmento). */
+function RedeCesta() {
+  return (
+    <group position={[ARO.x, ARO.y, 0]}>
+      <Instances limit={REDE_ANEIS.length}>
+        <torusGeometry args={[1, 0.04, 6, 28]} />
+        <meshStandardMaterial color={PALETTE.quadraLinha} transparent opacity={0.85} />
+        {REDE_ANEIS.map((a, i) => (
+          <Instance key={i} position={[0, a.y, 0]} rotation-x={Math.PI / 2} scale={a.r} />
+        ))}
+      </Instances>
+      <Instances limit={REDE_CORDOES.length}>
+        <cylinderGeometry args={[1, 1, 1, 5]} />
+        <meshStandardMaterial color={PALETTE.quadraLinha} transparent opacity={0.85} />
+        {REDE_CORDOES.map((c, i) => (
+          <Instance key={i} position={c.pos} quaternion={c.quat} scale={[0.006, c.comp, 0.006]} />
+        ))}
+      </Instances>
+    </group>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Tabela de basquete (poste, tabela, aro e rede)
 // ---------------------------------------------------------------------------
 
@@ -184,15 +264,17 @@ function TabelaBasquete({ pos, dir }: { pos: Vec3; dir: Vec3 }) {
         <planeGeometry args={[1.8, 1.05]} />
         <meshStandardMaterial map={tex} />
       </mesh>
-      {/* Aro (torus) e rede (cone de linhas). */}
-      <mesh position={[0.82, 3.05, 0]} rotation-x={Math.PI / 2}>
-        <torusGeometry args={[0.23, 0.02, 8, 20]} />
+      {/* Aro (torus) preso à tabela por um bracket; rede pendurada sob ele. */}
+      <mesh position={[ARO.x, ARO.y, 0]} rotation-x={Math.PI / 2}>
+        <torusGeometry args={[ARO.raio, 0.02, 8, 20]} />
         <meshStandardMaterial color={PALETTE.aroBasquete} />
       </mesh>
-      <mesh position={[0.82, 2.83, 0]}>
-        <coneGeometry args={[0.23, 0.4, 8, 3, true]} />
-        <meshBasicMaterial color={PALETTE.quadraLinha} wireframe />
+      {/* Bracket ligando o aro ao suporte da tabela. */}
+      <mesh position={[0.52, ARO.y, 0]}>
+        <boxGeometry args={[0.15, 0.04, 0.06]} />
+        <meshStandardMaterial color={PALETTE.aroBasquete} />
       </mesh>
+      <RedeCesta />
     </group>
   );
 }

@@ -61,3 +61,15 @@ https://tarikdsm.github.io/Escola_3D/
   passado = `resetDia()` + perseguição (replay consistente, pincéis resetam).
   Lógica em `src/simulation/viagemTempo.ts` + hook em `step.ts`; som do sino
   mudo durante a viagem; separação de agentes desligada na perseguição (custo).
+- **Exploração só com mouse** (sem WASD/teclado de movimento): modos
+  `voo` (padrão ao carregar: pointer lock no clique do canvas, mouse = direção,
+  LMB = frente, RMB = ré, scroll = zoom) → `livre` (ESC: câmera fixa, cursor
+  interage) → `possuido` (clique em personagem: 3ª pessoa, mouse dirige o NPC
+  no plano com colisão/escadas, LMB = andar, scroll = zoom; clique no vazio
+  solta e volta ao voo). Máquina de modos em `src/player/PlayerRig.tsx`;
+  API imperativa para touch em `src/player/entrada.ts`. Painéis da direita
+  (comandos e cartão de personagem) foram removidos.
+- **Mobile/touch**: joystick virtual + arrastar = olhar + pinça = zoom + tap =
+  interagir (`src/ui/TouchControls.tsx`, só `pointer: coarse`); HUDs compactos
+  e colapsáveis (`paineisOcultos` na store; recolhidos por padrão no touch);
+  viewport travado e `dpr` ≤ 1,75.

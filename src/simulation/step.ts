@@ -12,7 +12,9 @@
  *    ver behaviors.aoMudarPeriodo e estado.prepararNovoTurno);
  * 3) portão: aberto em CHEGADA/RECREIO/ALMOCO_SAIDA, fechado em AULA_*
  *    (decisão documentada aqui; aplicada só quando muda);
- * 4) agentes (máquina de estados + modos bola/fila);
+ * 4) agentes (máquina de estados + modos bola/fila) — o NPC POSSUÍDO pelo
+ *    jogador (store.possuidoIdx) é pulado: posição sincronizada dos buffers
+ *    SIM p/ a separação e sem escrita de buffers (edição mínima, agente C1);
  * 5) separação anti-sobreposição (hash espacial);
  * 6) física da bola;
  * 7) escrita dos buffers SIM (pos/facing/anim/phase/speed/talkTarget);
@@ -27,6 +29,7 @@ import { emit } from '../contracts/events';
 import { CONST } from '../contracts/layout';
 import { ROSTER } from '../contracts/roster';
 import { periodoPara, turnoPara } from '../contracts/routine';
+import { SIM } from '../contracts/simBuffer';
 import { useSchoolStore } from '../state/useSchoolStore';
 import { escreverAgente, atualizarAgente } from './agents';
 import { atualizarBola } from './ball';
@@ -75,14 +78,40 @@ function avancarSim(m: Mundo, dtJogo: number, comSeparacao = true): void {
     st.setPortaoAberto(aberto);
   }
 
-  for (const a of m.agentes) atualizarAgente(m, a, dtJogo);
+  // EDIÇÃO MÍNIMA (posse — agente C1): o NPC possuído (store.possuidoIdx)
+  // é dirigido pelo controlador de 3ª pessoa (src/player/), que escreve nos
+  // buffers SIM. Copiar essa posição ao agente faz dele um obstáculo PARADO
+  // na separação anti-sobreposição (liberarTudo na posse deixou fase/modo
+  // "parados"); o índice é pulado da máquina de estados logo abaixo.
+  const possuido = st.possuidoIdx;
+  if (possuido !== null) {
+    const ap = m.agentes[possuido];
+    ap.x = SIM.pos[possuido * 3];
+    ap.y = SIM.pos[possuido * 3 + 1];
+    ap.z = SIM.pos[possuido * 3 + 2];
+  }
+
+  for (const a of m.agentes) {
+    // EDIÇÃO MÍNIMA (posse — agente C1): o NPC possuído é pulado pela
+    // simulação; seus buffers SIM são dirigidos pelo controlador de 3ª
+    // pessoa (src/player/PossuidoControls.tsx) — ver também o sync acima
+    // e o ciclo de vida em src/player/possessao.ts.
+    if (a.indice === possuido) continue;
+    atualizarAgente(m, a, dtJogo);
+  }
   if (comSeparacao) separacao(m, dtJogo);
   atualizarBola(m.bola, dtJogo);
 }
 
 /** Escreve os buffers SIM e envia atividades a ~1 Hz (passos 7–8). */
 function sincronizar(m: Mundo, dtJogo: number, dtReal: number): void {
-  for (const a of m.agentes) escreverAgente(m, a, dtJogo, dtReal);
+  // EDIÇÃO MÍNIMA (posse — agente C1): não sobrescrever os buffers do NPC
+  // possuído — eles vêm do controlador de 3ª pessoa (src/player/).
+  const possuido = useSchoolStore.getState().possuidoIdx;
+  for (const a of m.agentes) {
+    if (a.indice === possuido) continue;
+    escreverAgente(m, a, dtJogo, dtReal);
+  }
 
   m.accAtividades += dtReal;
   if (m.accAtividades >= 1) {

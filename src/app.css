@@ -8,11 +8,15 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* Sem pull-to-refresh/encadeamento de rolagem no mobile. */
+  overscroll-behavior: none;
 }
 
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: #87ceeb; /* mesma cor do céu da cena (PALETTE.ceu) */
+  /* Sem o flash cinza de toque do iOS/Android sobre os painéis. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app {
@@ -22,4 +26,7 @@ body {
 
 canvas {
   display: block;
+  /* Gestos de toque no canvas não rolam/zoomam a página (painéis DOM
+     ficam com o touch-action padrão: continuam roláveis/clicáveis). */
+  touch-action: none;
 }

@@ -14,7 +14,9 @@
  * - relógio e progresso lidos por POLLING de 100 ms em
  *   useSchoolStore.getState().clockMin (NUNCA subscribe — muda a cada frame,
  *   padrão do HUD.tsx); apenas `viajando`/`minutoAlvoViagem` (baixa
- *   frequência) são assinados.
+ *   frequência) são assinados;
+ * - recolhível: o botão "−" colapsa o slider num chip "🕒 Tempo" (estado em
+ *   `paineisOcultos.tempo` da store — no touch os painéis abrem recolhidos).
  */
 
 import {
@@ -72,6 +74,8 @@ export function TimeSlider() {
   const viajando = useSchoolStore((s) => s.viajando);
   const alvoViagemStore = useSchoolStore((s) => s.minutoAlvoViagem);
   const viajarPara = useSchoolStore((s) => s.viajarPara);
+  const oculto = useSchoolStore((s) => !!s.paineisOcultos.tempo);
+  const togglePainel = useSchoolStore((s) => s.togglePainel);
 
   // Relógio e progresso da viagem por intervalo próprio (padrão do HUD).
   const [relogio, setRelogio] = useState(() => useSchoolStore.getState().clockMin);
@@ -160,6 +164,21 @@ export function TimeSlider() {
     viajando && alvoViagemStore !== null
       ? Math.max(0, pct(inicio + (alvoViagemStore - inicio) * progresso) - fillEsq)
       : 0;
+
+  // Recolhido: vira um chip no rodapé centro (toque para reexpandir).
+  if (oculto) {
+    return (
+      <button
+        type="button"
+        className="painel-chip chip-tempo"
+        onClick={() => togglePainel('tempo')}
+        title="Mostrar a viagem no tempo"
+        aria-label="Mostrar a viagem no tempo"
+      >
+        🕒 Tempo
+      </button>
+    );
+  }
 
   return (
     <div className="time-slider">
@@ -254,6 +273,16 @@ export function TimeSlider() {
         aria-label="Avançar 30 minutos"
       >
         ▶
+      </button>
+
+      <button
+        type="button"
+        className="hud-botao time-slider-botao painel-min"
+        onClick={() => togglePainel('tempo')}
+        title="Recolher o painel"
+        aria-label="Recolher o painel"
+      >
+        −
       </button>
     </div>
   );

@@ -6,6 +6,7 @@
 
 export { HUD } from './HUD';
 export { PinceisPanel } from './PinceisPanel';
+export { TimeSlider } from './TimeSlider';
 export { CharacterCard } from './CharacterCard';
 export { HelpOverlay } from './HelpOverlay';
 export { ControlsPanel } from './ControlsPanel';

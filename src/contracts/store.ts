@@ -55,6 +55,14 @@ export interface SchoolState {
    * `simulation/pinceis.ts` (setComAllcanci), que a simulação lê.
    */
   comAllcanci: boolean;
+  /**
+   * true durante uma VIAGEM NO TEMPO (slider do rodapé): o tick normal do
+   * relógio é substituído pelos passos de perseguição (ver
+   * simulation/viagemTempo.ts e o hook em step.ts) e o som do sino fica mudo.
+   */
+  viajando: boolean;
+  /** Minuto-alvo da viagem em curso (7·60–23·60), ou null fora de viagem. */
+  minutoAlvoViagem: number | null;
 
   // --- Actions ---
   setVelocidade: (v: Velocidade) => void;
@@ -83,4 +91,16 @@ export interface SchoolState {
   /** Aplica em lote as descrições de atividade (~1 Hz pela simulação). */
   setAtividades: (batch: Record<string, string>) => void;
   setPortaoAberto: (aberto: boolean) => void;
+  /**
+   * Inicia (ou redefine, se já estiver viajando) uma viagem no tempo para
+   * `minuto` (clamp 7h00–23h00). Futuro: perseguição em passos grossos;
+   * passado: reset do dia (7h) + perseguição. Delega a
+   * simulation/viagemTempo.ts (estado) e ao hook em step.ts (execução).
+   */
+  viajarPara: (minuto: number) => void;
+  /**
+   * Cancela a viagem em curso: o relógio fica onde estiver e retoma o tick
+   * normal no próximo frame.
+   */
+  cancelarViagem: () => void;
 }

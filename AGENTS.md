@@ -55,3 +55,9 @@ https://tarikdsm.github.io/Escola_3D/
   **substituiu o minimapa** (removido por completo): chave Sem/Com Allcanci,
   cargas por cor, estoque do almoxarifado, descartados e botão Repor estoque;
   dinâmica em `src/simulation/pinceis.ts`.
+- **Slider de viagem no tempo** (`src/ui/TimeSlider.tsx`, rodapé centro): slider
+  absoluto 7h–23h (direita = futuro, esquerda = passado) + botões ±30 min.
+  Futuro = a simulação persegue o alvo em passos grossos por fatias de frame;
+  passado = `resetDia()` + perseguição (replay consistente, pincéis resetam).
+  Lógica em `src/simulation/viagemTempo.ts` + hook em `step.ts`; som do sino
+  mudo durante a viagem; separação de agentes desligada na perseguição (custo).

@@ -370,7 +370,9 @@ for (const stair of STAIRS) {
 // Pulamos pontos dentro dos canteiros (PATIO.canteiros) ou sobre as escadas —
 // com `yRef = 0`, `alturaNaRampa` só captura pontos onde a rampa está BAIXA
 // (≤ 1,5 m do chão); o solo sob lances/patamares/passarelas elevados (≥ 2,6 m
-// de vão livre) é caminhável e mantém seu nó.
+// de vão livre) é caminhável e mantém seu nó. Exceção: lances com base no
+// SOLO (base.y = 0) são maciços até o chão — qualquer ponto da projeção deles
+// é corpo sólido (sem vão), então o nó é pulado em qualquer altura.
 const COLUNAS_PATIO = [-30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30];
 const LINHAS_PATIO = [-16, -11, -6, -1, 4, 9];
 function dentroDeCanteiro(x: number, z: number): boolean {
@@ -378,9 +380,24 @@ function dentroDeCanteiro(x: number, z: number): boolean {
     (c) => Math.abs(x - c.pos[0]) < c.w / 2 + 0.3 && Math.abs(z - c.pos[2]) < c.d / 2 + 0.3,
   );
 }
+/** Ponto dentro da projeção (com folga) de um lance maciço (base no solo)? */
+function dentroDeLanceMacico(x: number, z: number): boolean {
+  for (const s of STAIRS) {
+    for (const l of s.lances) {
+      if (l.base[1] !== 0) continue;
+      const minX = Math.min(l.base[0], l.topo[0]) - s.largura / 2 - 0.1;
+      const maxX = Math.max(l.base[0], l.topo[0]) + s.largura / 2 + 0.1;
+      const minZ = Math.min(l.base[2], l.topo[2]) - 0.1;
+      const maxZ = Math.max(l.base[2], l.topo[2]) + 0.1;
+      if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) return true;
+    }
+  }
+  return false;
+}
 for (const z of LINHAS_PATIO) {
   for (const x of COLUNAS_PATIO) {
     if (dentroDeCanteiro(x, z)) continue;
+    if (dentroDeLanceMacico(x, z)) continue;
     if (STAIRS.some((s) => alturaNaRampa(s, x, z, 0) !== null)) continue;
     addNo({ id: `patio-${x}-${z}`, pos: [x, 0, z], andar: 0, tipo: 'patio' });
   }

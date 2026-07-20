@@ -7,8 +7,9 @@
  *   U de 4 andares com Bloco C), o almoxarifado, o exterior, os personagens
  *   (+ picking), a simulação e o rig do jogador.
  * - FORA do Canvas (DOM comum): HUD, painel de pincéis (substitui o antigo
- *   minimapa), cartão de personagem e o overlay de ajuda (sempre montado —
- *   os atalhos H/? vivem nele).
+ *   minimapa), cartão de personagem, overlay de ajuda (sempre montado — os
+ *   atalhos H/? vivem nele) e o slider de viagem no tempo (rodapé centro:
+ *   arrastar leva ao futuro/passado, botões ◀ ▶ de ±30 min).
  * - initAudio() é chamado uma vez no mount (idempotente; o AudioContext só
  *   é criado após o primeiro gesto do usuário, por política do browser).
  */
@@ -24,7 +25,7 @@ import { Characters } from './characters/Characters';
 import { CharacterPicker } from './characters/picking';
 import { Simulation } from './simulation/Simulation';
 import { PlayerRig } from './player';
-import { CharacterCard, ControlsPanel, HelpOverlay, HUD, PinceisPanel, initAudio } from './ui';
+import { CharacterCard, ControlsPanel, HelpOverlay, HUD, PinceisPanel, TimeSlider, initAudio } from './ui';
 import './app.css';
 
 export default function App() {
@@ -64,6 +65,8 @@ export default function App() {
       <PinceisPanel />
       <CharacterCard />
       <HelpOverlay />
+      {/* Viagem no tempo: slider do dia letivo (7h–23h) no rodapé centro */}
+      <TimeSlider />
     </div>
   );
 }

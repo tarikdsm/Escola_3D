@@ -35,6 +35,7 @@ export const PALETTE = {
   janelaMoldura: '#f5f5f0',
   guardaCorpo: '#4a6fa5', // guarda-corpo azul das varandas
   corrimao: '#3b5998',
+  degrauBocel: '#8d8474', // filete de contraste no nariz dos degraus (leitura do espelho)
   coluna: '#f0e8d8',
 
   // --- Muros, portão e rua ---

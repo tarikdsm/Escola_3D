@@ -218,3 +218,28 @@ Desvios e decisões relevantes em relação a esta spec:
 - **GLB da máquina Fill**: exceção à regra "100% procedural" registrada no
   AGENTS.md; carregado de `public/models/maquina_fill_web.glb` via `useGLTF`
   com fallback procedural.
+
+## Pós-expansão: slider de tempo + acabamento das escadas
+
+- **Slider de viagem no tempo** (`src/ui/TimeSlider.tsx`, rodapé centro):
+  slider absoluto 7h–23h (direita = futuro, esquerda = passado), botões ±30 min,
+  ticks nos sinos e faixas por turno (tudo derivado de `ROTINA`/`CONST`).
+  Futuro: perseguição em passos grossos (1–5 s de jogo, adaptativo) em fatias
+  por frame (orçamento 12 ms/96 passos; pior caso ~5,4 s). Passado: `resetDia()`
+  + perseguição (replay consistente — pincéis/posições re-simulados). Módulo
+  `src/simulation/viagemTempo.ts` (sem importar a store — sem ciclo); hook em
+  `step.ts`; store ganha `viajando`/`minutoAlvoViagem`/`viajarPara`/
+  `cancelarViagem`; sino mudo durante a viagem (`ui/audio.ts`); separação de
+  agentes desligada na perseguição (88–100% do custo era `separacao`→
+  `cruzaParede` — otimização futura: índice espacial de paredes).
+- **Escadas — acabamento** (geometria do contrato preservada, decisão do
+  usuário): lances elevados com fundo liso (viga-caixão inclinada 0,25 m +
+  degraus-caixote finos); patamares/passarelas y=6 com vigas de borda 0,25×0,5
+  e escoras inclinadas ancoradas nos lances (sem pilares no chão do pátio);
+  bocel escuro no nariz de cada degrau (`PALETTE.degrauBocel`); corrimãos em
+  dois níveis (0,92/0,50 m), balaústres a cada ~0,4 m. Geometria pura em
+  `src/world/upperFloor/props/staircaseGeometry.ts`.
+- **Correção de grafo**: nó `patio--25-9` ficava dentro do corpo maciço do
+  lance 1 da escada B (rampa a 2,6 m, sem vão) — o filtro da grade do pátio
+  agora pula qualquer ponto na projeção de lances com base no solo
+  (`dentroDeLanceMacico`). Grafo revalidado: **498 nós, 100% alcançável**.

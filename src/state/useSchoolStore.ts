@@ -12,6 +12,10 @@ import { CONST } from '../contracts/layout';
 import { ROTINA, periodoPara, turnoPara } from '../contracts/routine';
 import { emit } from '../contracts/events';
 import { reporEstoque as reporEstoquePinceis, setComAllcanci } from '../simulation/pinceis';
+import {
+  iniciarViagem,
+  cancelarViagem as cancelarViagemSim,
+} from '../simulation/viagemTempo';
 import type { SchoolState } from '../contracts/store';
 
 export const useSchoolStore = create<SchoolState>()((set, get) => ({
@@ -26,6 +30,8 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
   atividades: {},
   portaoAberto: true,
   comAllcanci: false, // "Sem Allcanci": pincéis descartáveis (estoque do almoxarifado)
+  viajando: false, // viagem no tempo (slider do rodapé) em curso
+  minutoAlvoViagem: null,
 
   setVelocidade: (v) => set({ velocidade: v }),
   toggleSom: () => set((s) => ({ somLigado: !s.somLigado })),
@@ -47,6 +53,20 @@ export const useSchoolStore = create<SchoolState>()((set, get) => ({
   },
   reporEstoque: () => reporEstoquePinceis(),
   selecionar: (id) => set({ selecionadoId: id }),
+
+  // Viagem no tempo: a store só espelha o alvo; o estado/reset ficam no
+  // módulo simulation/viagemTempo.ts e a perseguição no hook de step.ts.
+  viajarPara: (minuto) => {
+    const alvo = Math.round(
+      Math.min(Math.max(minuto, CONST.HORA_ABERTURA), CONST.HORA_FECHAMENTO),
+    );
+    iniciarViagem(alvo, get().clockMin); // redefine o alvo se já estiver viajando
+    set({ viajando: true, minutoAlvoViagem: alvo });
+  },
+  cancelarViagem: () => {
+    cancelarViagemSim();
+    set({ viajando: false, minutoAlvoViagem: null });
+  },
 
   tickClock: (minutos) => {
     const { clockMin, periodo } = get();

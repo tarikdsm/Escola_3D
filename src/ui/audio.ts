@@ -7,7 +7,9 @@
  *
  * Sons:
  * - SINO: campainha escolar (quadrado ~2,2 kHz com tremolo de 25 Hz, ~2,5 s,
- *   envelopes com rampas — sem cliques), disparada pelo evento 'sino'.
+ *   envelopes com rampas — sem cliques), disparada pelo evento 'sino'. Fica
+ *   MUDO durante a viagem no tempo (store.viajando): os eventos 'sino'
+ *   continuam disparando na lógica, mas tocarSino retorna sem tocar.
  * - MURMÚRIO: loop de ruído branco → lowpass 400 Hz → ganho com LFO lento;
  *   nível depende do período (CHEGADA 0,5 · AULA 0,12 · RECREIO 0,8 · SAÍDA 0,6).
  * - BOLA QUICANDO: só no RECREIO; thumps (seno ~120 Hz com decay rápido) em
@@ -142,6 +144,8 @@ function aplicarPeriodo(p: Periodo): void {
 /** Campainha escolar: quadrado 2,2 kHz + tremolo 25 Hz, ~2,5 s, sem cliques. */
 function tocarSino(): void {
   if (!ctx || !master || ctx.state !== 'running') return;
+  // Viagem no tempo: os sinos disparam na lógica, mas o som fica mudo.
+  if (useSchoolStore.getState().viajando) return;
   const t0 = ctx.currentTime + 0.02;
   const dur = 2.5;
 
